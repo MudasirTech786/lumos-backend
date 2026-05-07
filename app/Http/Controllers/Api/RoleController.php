@@ -3,96 +3,134 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Role;
+
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+
+use Spatie\Permission\Models\Role;
+
+use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
 {
+    // GET ROLES
     public function index(Request $request)
     {
         $query = Role::with('permissions');
 
+        // SEARCH
         if ($request->search) {
-            $query->where('name', 'like', "%{$request->search}%");
+
+            $query->where(
+                'name',
+                'like',
+                "%{$request->search}%"
+            );
         }
 
-        $roles = $query->orderBy(
-            $request->sort ?? 'id',
-            $request->order ?? 'desc'
-        )->paginate(10);
+        $roles = $query
+            ->latest()
+            ->paginate(10);
 
         return response()->json([
-            'roles' => $roles->items(),
-            'meta' => [
-                'current_page' => $roles->currentPage(),
-                'last_page' => $roles->lastPage(),
-            ]
+
+            'roles' => $roles
         ]);
     }
 
+    // CREATE ROLE
     public function store(Request $request)
     {
         $request->validate([
+
             'name' => 'required|string|unique:roles,name',
-            'permissions' => 'array'
+
+            'permissions' => 'nullable|array',
         ]);
 
+        // CREATE ROLE
         $role = Role::create([
-            'name' => $request->name
+
+            'name' => $request->name,
+
+            'guard_name' => 'web',
         ]);
 
-        $role->permissions()->sync($request->permissions ?? []);
+        // ASSIGN PERMISSIONS
+        if ($request->permissions) {
 
-        $this->clearRoleCache($role);
+            $permissions = Permission::whereIn(
+                'id',
+                $request->permissions
+            )->pluck('name');
+
+            $role->syncPermissions(
+                $permissions
+            );
+        }
 
         return response()->json([
+
             'message' => 'Role created',
+
             'role' => $role->load('permissions')
         ]);
     }
 
+    // SHOW ROLE
+    public function show($id)
+    {
+        return response()->json([
+
+            'role' => Role::with('permissions')
+                ->findOrFail($id)
+        ]);
+    }
+
+    // UPDATE ROLE
     public function update(Request $request, $id)
     {
         $role = Role::findOrFail($id);
 
         $request->validate([
+
             'name' => 'required|string|unique:roles,name,' . $id,
-            'permissions' => 'array'
+
+            'permissions' => 'nullable|array',
         ]);
 
+        // UPDATE ROLE
         $role->update([
-            'name' => $request->name
+
+            'name' => $request->name,
         ]);
 
-        $role->permissions()->sync($request->permissions ?? []);
+        // SYNC PERMISSIONS
+        $permissions = Permission::whereIn(
+            'id',
+            $request->permissions ?? []
+        )->pluck('name');
 
-        $this->clearRoleCache($role);
+        $role->syncPermissions(
+            $permissions
+        );
 
         return response()->json([
+
             'message' => 'Role updated',
+
             'role' => $role->load('permissions')
         ]);
     }
 
+    // DELETE ROLE
     public function destroy($id)
     {
-        $role = Role::findOrFail($id);
-
-        $role->permissions()->detach();
-        $role->delete();
-
-        $this->clearRoleCache($role);
+        Role::findOrFail($id)
+            ->delete();
 
         return response()->json([
+
             'message' => 'Role deleted'
         ]);
-    }
-
-    private function clearRoleCache($role)
-    {
-        foreach ($role->users as $user) {
-            Cache::forget("user_permissions_{$user->id}");
-        }
     }
 }

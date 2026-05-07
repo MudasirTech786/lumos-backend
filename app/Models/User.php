@@ -3,27 +3,33 @@
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
+
 use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Support\Facades\Cache;
+
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens;
+    use HasApiTokens, HasRoles;
 
     protected $fillable = [
-        'role_id',
+
         'name',
+
         'email',
+
         'password',
     ];
 
-    public function role()
-    {
-        return $this->belongsTo(Role::class);
-    }
+    protected $hidden = [
 
-    public function getAllPermissionsAttribute()
+        'password',
+
+        'remember_token',
+    ];
+
+    public function employee()
     {
-        return $this->role?->permissions ?? collect();
+        return $this->hasOne(Employee::class);
     }
 }

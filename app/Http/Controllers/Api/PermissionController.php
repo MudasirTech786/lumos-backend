@@ -3,89 +3,112 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Permission;
+
 use Illuminate\Http\Request;
+
+use Spatie\Permission\Models\Permission;
 
 class PermissionController extends Controller
 {
-    // 📌 GET ALL PERMISSIONS (with search + pagination)
+    // GET PERMISSIONS
     public function index(Request $request)
-{
-    $query = Permission::query();
+    {
+        $query = Permission::query();
 
-    if ($request->filled('search')) {
-        $query->where('name', 'like', "%{$request->search}%");
-    }
+        // SEARCH
+        if ($request->filled('search')) {
 
-    // ✅ SAFE FULL LIST MODE
-    if ($request->boolean('all')) {
+            $query->where(
+                'name',
+                'like',
+                "%{$request->search}%"
+            );
+        }
+
+        // ALL MODE
+        if ($request->boolean('all')) {
+
+            return response()->json([
+
+                'permissions' => $query
+                    ->orderBy('name')
+                    ->get()
+            ]);
+        }
+
+        $permissions = $query
+            ->latest()
+            ->paginate(10);
+
         return response()->json([
-            'permissions' => $query->orderBy('name')->get()
+
+            'permissions' => $permissions
         ]);
     }
 
-    $sort = $request->get('sort', 'id');
-    $order = $request->get('order', 'desc');
-
-    $permissions = $query->orderBy($sort, $order)->paginate(10);
-
-    return response()->json([
-        'permissions' => $permissions->items(),
-        'meta' => [
-            'current_page' => $permissions->currentPage(),
-            'last_page' => $permissions->lastPage(),
-        ]
-    ]);
-}
-
-    // 📌 CREATE PERMISSION
+    // CREATE
     public function store(Request $request)
     {
         $request->validate([
+
             'name' => 'required|string|unique:permissions,name',
         ]);
 
         $permission = Permission::create([
+
             'name' => $request->name,
+
+            'guard_name' => 'web',
         ]);
 
         return response()->json([
+
             'message' => 'Permission created',
+
             'permission' => $permission
         ]);
     }
 
-    // 📌 SHOW SINGLE
+    // SHOW
     public function show($id)
     {
-        return Permission::findOrFail($id);
+        return response()->json([
+
+            'permission' => Permission::findOrFail($id)
+        ]);
     }
 
-    // 📌 UPDATE
+    // UPDATE
     public function update(Request $request, $id)
     {
         $permission = Permission::findOrFail($id);
 
         $request->validate([
+
             'name' => 'required|string|unique:permissions,name,' . $id,
         ]);
 
         $permission->update([
+
             'name' => $request->name,
         ]);
 
         return response()->json([
+
             'message' => 'Permission updated',
+
             'permission' => $permission
         ]);
     }
 
-    // 📌 DELETE
+    // DELETE
     public function destroy($id)
     {
-        Permission::findOrFail($id)->delete();
+        Permission::findOrFail($id)
+            ->delete();
 
         return response()->json([
+
             'message' => 'Permission deleted'
         ]);
     }

@@ -7,33 +7,43 @@ use Illuminate\Database\Eloquent\Model;
 class Employee extends Model
 {
     protected $fillable = [
-        'department_id',
+
+        'user_id',
+
+        'employee_code',
+
         'name',
         'email',
         'phone',
+
+        'department',
         'designation',
+
         'base_salary',
+
         'hire_date',
-        'status'
+
+        'status',
+
+        'cnic',
+        'address',
+        'emergency_contact',
+
+        'profile_photo',
     ];
 
-    public function department()
-    {
-        return $this->belongsTo(Department::class);
-    }
+    protected $casts = [
 
-    public function attendances()
-    {
-        return $this->hasMany(Attendance::class);
-    }
+        'hire_date' => 'date',
+    ];
 
     public function leaves()
     {
         return $this->hasMany(Leave::class);
     }
 
-    public function payrolls()
+    public function user()
     {
-        return $this->hasMany(Payroll::class);
+        return $this->belongsTo(User::class);
     }
 }

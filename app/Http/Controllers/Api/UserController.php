@@ -3,38 +3,50 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+
 use App\Models\User;
+
 use Illuminate\Http\Request;
+
 use Illuminate\Support\Facades\Hash;
+
+use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
-    // 📌 GET USERS (SEARCH + PAGINATION)
+    // 📌 GET USERS
     public function index(Request $request)
     {
-        $query = User::query();
+        $query = User::with('roles');
 
-        // 🔎 SEARCH
+        // SEARCH
         if ($request->filled('search')) {
+
             $search = $request->search;
 
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%$search%")
-                    ->orWhere('email', 'like', "%$search%");
+
+                $q->where(
+                    'name',
+                    'like',
+                    "%{$search}%"
+                )
+
+                ->orWhere(
+                    'email',
+                    'like',
+                    "%{$search}%"
+                );
             });
         }
 
-        // 📄 PAGINATION
-        $users = $query->latest()->paginate(10);
+        $users = $query
+            ->latest()
+            ->paginate(10);
 
         return response()->json([
-            'users' => $users->items(), // data only
-            'meta' => [
-                'current_page' => $users->currentPage(),
-                'last_page' => $users->lastPage(),
-                'per_page' => $users->perPage(),
-                'total' => $users->total(),
-            ]
+
+            'users' => $users
         ]);
     }
 
@@ -42,30 +54,47 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+
             'name' => 'required|string',
+
             'email' => 'required|email|unique:users',
+
             'password' => 'required|min:6',
-            'role_id' => 'required|exists:roles,id'
+
+            'role' => 'required|exists:roles,name',
         ]);
 
         $user = User::create([
-            'role_id' => $request->role_id,
+
             'name' => $request->name,
+
             'email' => $request->email,
-            'password' => Hash::make($request->password),
+
+            'password' => Hash::make(
+                $request->password
+            ),
         ]);
 
+        // ASSIGN ROLE
+        $user->assignRole(
+            $request->role
+        );
+
         return response()->json([
+
             'message' => 'User created',
-            'user' => $user
+
+            'user' => $user->load('roles')
         ]);
     }
 
-    // 📌 GET SINGLE USER
+    // 📌 SHOW SINGLE USER
     public function show($id)
     {
         return response()->json([
-            'user' => User::findOrFail($id)
+
+            'user' => User::with('roles')
+                ->findOrFail($id)
         ]);
     }
 
@@ -75,40 +104,66 @@ class UserController extends Controller
         $user = User::findOrFail($id);
 
         $request->validate([
+
             'name' => 'required',
+
             'email' => 'required|email|unique:users,email,' . $id,
-            'role_id' => 'required|exists:roles,id',
+
+            'role' => 'required|exists:roles,name',
         ]);
-
-        // 🔐 GET ROLE NAME
-        $newRole = \App\Models\Role::find($request->role_id);
-
-        // 🚫 BLOCK CHANGING ADMIN USER (by name or role)
-        if ($user->name === 'Admin' && $newRole->name !== 'Super Admin') {
-            return response()->json([
-                'message' => 'Admin user can only have Super Admin role'
-            ], 403);
-        }
 
         $user->update([
+
             'name' => $request->name,
+
             'email' => $request->email,
-            'role_id' => $request->role_id,
         ]);
 
+        // UPDATE ROLE
+        $user->syncRoles([
+            $request->role
+        ]);
+
+        // UPDATE PASSWORD IF PROVIDED
+        if ($request->password) {
+
+            $user->update([
+
+                'password' => Hash::make(
+                    $request->password
+                )
+            ]);
+        }
+
         return response()->json([
+
             'message' => 'User updated',
-            'user' => $user->load('role')
+
+            'user' => $user->load('roles')
         ]);
     }
 
     // 📌 DELETE USER
     public function destroy($id)
     {
-        User::findOrFail($id)->delete();
+        User::findOrFail($id)
+            ->delete();
 
         return response()->json([
+
             'message' => 'User deleted'
+        ]);
+    }
+
+    // 📌 GET ROLES
+    public function roles()
+    {
+        return response()->json([
+
+            'roles' => Role::select(
+                'id',
+                'name'
+            )->get()
         ]);
     }
 }
