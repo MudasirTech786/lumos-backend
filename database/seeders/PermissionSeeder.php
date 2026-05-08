@@ -54,6 +54,13 @@ class PermissionSeeder extends Seeder
             'workspaces.view',
             'workspaces.edit',
             'workspaces.delete',
+            
+            // LEAVES
+            'leaves.create',
+            'leaves.view',
+            'leaves.edit',
+            'leaves.delete',
+            'leaves.view_own'
         ];
 
         foreach ($permissions as $permission) {
