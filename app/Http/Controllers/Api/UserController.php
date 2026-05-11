@@ -32,11 +32,11 @@ class UserController extends Controller
                     "%{$search}%"
                 )
 
-                ->orWhere(
-                    'email',
-                    'like',
-                    "%{$search}%"
-                );
+                    ->orWhere(
+                        'email',
+                        'like',
+                        "%{$search}%"
+                    );
             });
         }
 
@@ -99,23 +99,26 @@ class UserController extends Controller
     }
 
     // 📌 UPDATE USER
+    // 📌 UPDATE USER
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
 
+        // ✅ PROTECT SUPER ADMIN
+        if ($user->name === 'Super Admin') {
+            return response()->json([
+                'message' => 'Super Admin cannot be edited'
+            ], 403);
+        }
+
         $request->validate([
-
             'name' => 'required',
-
             'email' => 'required|email|unique:users,email,' . $id,
-
             'role' => 'required|exists:roles,name',
         ]);
 
         $user->update([
-
             'name' => $request->name,
-
             'email' => $request->email,
         ]);
 
@@ -126,9 +129,7 @@ class UserController extends Controller
 
         // UPDATE PASSWORD IF PROVIDED
         if ($request->password) {
-
             $user->update([
-
                 'password' => Hash::make(
                     $request->password
                 )
@@ -136,9 +137,7 @@ class UserController extends Controller
         }
 
         return response()->json([
-
             'message' => 'User updated',
-
             'user' => $user->load('roles')
         ]);
     }
@@ -146,11 +145,18 @@ class UserController extends Controller
     // 📌 DELETE USER
     public function destroy($id)
     {
-        User::findOrFail($id)
-            ->delete();
+        $user = User::findOrFail($id);
+
+        // ✅ PROTECT SUPER ADMIN
+        if ($user->name === 'Super Admin') {
+            return response()->json([
+                'message' => 'Super Admin cannot be deleted'
+            ], 403);
+        }
+
+        $user->delete();
 
         return response()->json([
-
             'message' => 'User deleted'
         ]);
     }

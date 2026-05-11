@@ -64,20 +64,13 @@ class PermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-
-            Permission::firstOrCreate([
-                'name' => $permission
-            ]);
+            Permission::firstOrCreate(['name' => $permission]);
         }
 
         // ADMIN ROLE
-        $adminRole = Role::firstOrCreate([
-            'name' => 'admin'
-        ]);
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
 
-        // GIVE ALL PERMISSIONS
-        $adminRole->syncPermissions(
-            Permission::all()
-        );
+        // ✅ ASSIGN ALL PERMISSIONS TO ADMIN ROLE
+        $adminRole->syncPermissions(Permission::all());
     }
 }
