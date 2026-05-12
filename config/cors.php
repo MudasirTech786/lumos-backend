@@ -20,7 +20,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'https://your-vercel-app.vercel.app',
+        'https://nizaamo-frontend.vercel.app',
     ],
 
     'allowed_origins_patterns' => [],
