@@ -93,6 +93,15 @@ class PermissionSeeder extends Seeder
             'employees.view',
             'employees.edit',
             'employees.delete',
+            'products.create',
+            'products.view',
+            'products.edit',
+            'products.delete',
+            'shoots.create',
+            'shoots.view',
+            'shoots.edit',
+            'shoots.delete',
+            'shoots.assign_crew',
         ]);
 
         // ================= VIEWER =================
