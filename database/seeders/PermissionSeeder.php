@@ -48,13 +48,13 @@ class PermissionSeeder extends Seeder
             'crew.view',
             'crew.edit',
             'crew.delete',
-            
+
             // WORKSPACES
             'workspaces.create',
             'workspaces.view',
             'workspaces.edit',
             'workspaces.delete',
-            
+
             // LEAVES
             'leaves.create',
             'leaves.view',
@@ -67,10 +67,43 @@ class PermissionSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission]);
         }
 
-        // ADMIN ROLE
-        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        // ================= ADMIN =================
+        $admin = Role::firstOrCreate([
+            'name' => 'admin'
+        ]);
 
-        // ✅ ASSIGN ALL PERMISSIONS TO ADMIN ROLE
-        $adminRole->syncPermissions(Permission::all());
+        $admin->syncPermissions(Permission::all());
+
+        // ================= HR MANAGER =================
+        $hr = Role::firstOrCreate([
+            'name' => 'hr_manager'
+        ]);
+
+        $hr->syncPermissions([
+            'crew.view',
+            'crew.create',
+            'crew.edit',
+            'crew.delete',
+            'leaves.create',
+            'leaves.view',
+            'leaves.edit',
+            'leaves.delete',
+            'leaves.view_own',
+            'employees.create',
+            'employees.view',
+            'employees.edit',
+            'employees.delete',
+        ]);
+
+        // ================= VIEWER =================
+        $viewer = Role::firstOrCreate([
+            'name' => 'viewer'
+        ]);
+
+        $viewer->syncPermissions([
+            'crew.view',
+            'employees.view',
+            'leaves.view',
+        ]);
     }
 }
