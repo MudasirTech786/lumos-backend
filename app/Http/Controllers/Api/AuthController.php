@@ -10,6 +10,8 @@ use App\Models\User;
 
 use Illuminate\Support\Facades\Hash;
 
+use Spatie\Permission\Models\Role;
+
 class AuthController extends Controller
 {
     // REGISTER
@@ -36,8 +38,11 @@ class AuthController extends Controller
             ),
         ]);
 
-        // ASSIGN ADMIN ROLE
-        // $user->assignRole('admin');
+        // ASSIGN VIEWER ROLE IF EXISTS
+        if (Role::where('name', 'viewer')->exists()) {
+
+            $user->assignRole('viewer');
+        }
 
         // CREATE TOKEN
         $token = $user
@@ -48,7 +53,7 @@ class AuthController extends Controller
 
             'message' => 'User registered successfully',
 
-            'user' => $user,
+            'user' => $user->load('roles'),
 
             'token' => $token
 
