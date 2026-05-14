@@ -12,11 +12,11 @@ use App\Http\Controllers\Api\WorkspaceAppController;
 use App\Http\Controllers\Api\CrewController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\LeaveController;
+use App\Http\Controllers\Api\ShootController;
 
 Route::get('/user', function (Request $request) {
 
     return $request->user();
-
 })->middleware('auth:sanctum');
 
 
@@ -177,5 +177,25 @@ Route::middleware('auth:sanctum')->group(function () {
         'permission:leaves.view'
     ])->parameters([
         'leaves' => 'leave'
+    ]);
+
+    // =======================================
+    // SHOOTS
+    // =======================================
+
+    Route::apiResource(
+        'shoots',
+        ShootController::class
+    )->middleware([
+        'permission:shoots.view'
+    ])->parameters([
+        'shoots' => 'shoot'
+    ]);
+
+    Route::post(
+        'shoots/{shoot}/assign-crew',
+        [ShootController::class, 'assignCrew']
+    )->middleware([
+        'permission:shoots.edit'
     ]);
 });

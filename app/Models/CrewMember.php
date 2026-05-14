@@ -41,4 +41,21 @@ class CrewMember extends Model
 
         'is_active'
     ];
+
+    public function shoots()
+    {
+        return $this->belongsToMany(
+            Shoot::class,
+            'shoot_crew'
+        )
+            ->withPivot([
+                'position',
+                'call_time',
+                'wrap_time',
+                'rate',
+                'status',
+                'notes',
+            ])
+            ->withTimestamps();
+    }
 }
