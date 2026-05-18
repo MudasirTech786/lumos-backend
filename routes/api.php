@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\CrewController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\LeaveController;
 use App\Http\Controllers\Api\ShootController;
+use App\Http\Controllers\Api\ShootLogisticController;
 
 Route::get('/user', function (Request $request) {
 
@@ -192,10 +193,47 @@ Route::middleware('auth:sanctum')->group(function () {
         'shoots' => 'shoot'
     ]);
 
+    // For Shoot Status Update
+    Route::patch(
+        'shoots/{shoot}/status',
+        [ShootController::class, 'updateStatus']
+    )->middleware([
+        'permission:shoots.edit'
+    ]);
+
+    // For Assign Crew to Shoot
     Route::post(
         'shoots/{shoot}/assign-crew',
         [ShootController::class, 'assignCrew']
     )->middleware([
         'permission:shoots.edit'
     ]);
+
+    // For Remove Crew from Shoot
+    Route::delete(
+        'shoots/{shoot}/crew/{crew}',
+        [ShootController::class, 'removeCrew']
+    )->middleware([
+        'permission:shoots.edit'
+    ]);
+
+    // For Shoot Logistics
+    Route::post(
+        'shoots/{shoot}/logistics',
+        [ShootLogisticController::class, 'save']
+    )->middleware([
+        'permission:shoots.edit'
+    ]);
+
+    // For Deleting Shoot Logistics
+    Route::delete(
+        '/logistics/{logistic}',
+        [ShootLogisticController::class, 'destroy']
+    );
+
+    // For Updating Shoot Logistic Status
+    Route::patch(
+        '/logistics/{logistic}/status',
+        [ShootLogisticController::class, 'updateStatus']
+    );
 });

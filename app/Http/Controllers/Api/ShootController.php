@@ -7,6 +7,8 @@ use App\Models\Shoot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use App\Models\CrewMember;
 
 class ShootController extends Controller
 {
@@ -18,7 +20,9 @@ class ShootController extends Controller
 
     public function index()
     {
-        return Shoot::latest()->get();
+        return Shoot::with('crewMembers', 'logistics',)
+            ->latest()
+            ->get();
     }
 
     /*
@@ -32,6 +36,14 @@ class ShootController extends Controller
         $request->validate([
 
             'title' => 'required|string|max:255',
+
+            'start_datetime' => 'nullable|date',
+
+            'end_datetime' =>
+            'nullable|date|after:start_datetime',
+
+            'status' =>
+            'nullable|in:planned,scheduled,active,completed,cancelled',
         ]);
 
         $shoot = Shoot::create([
@@ -46,7 +58,9 @@ class ShootController extends Controller
 
             'location' => $request->location,
 
-            'shoot_date' => $request->shoot_date,
+            'start_datetime' => $request->start_datetime,
+
+            'end_datetime' => $request->end_datetime,
 
             'status' => $request->status ?? 'planned',
 
@@ -56,8 +70,36 @@ class ShootController extends Controller
         ]);
 
         return response()->json([
+
             'message' => 'Shoot created successfully',
-            'shoot' => $shoot
+
+            'shoot' => $shoot,
+        ]);
+    }
+
+
+    public function updateStatus(
+        Request $request,
+        Shoot $shoot
+    ) {
+
+        $request->validate([
+
+            'status' =>
+            'required|in:planned,scheduled,active,completed,cancelled',
+        ]);
+
+        $shoot->update([
+
+            'status' => $request->status,
+        ]);
+
+        return response()->json([
+
+            'message' =>
+            'Shoot status updated successfully',
+
+            'shoot' => $shoot,
         ]);
     }
 
@@ -69,7 +111,20 @@ class ShootController extends Controller
 
     public function show(Shoot $shoot)
     {
-        return $shoot->load('crewMembers');
+        $shoot->syncStatus();
+
+        $shoot->load([
+            'crewMembers',
+            'logistics'
+        ]);
+
+        return response()->json([
+
+            ...$shoot->toArray(),
+
+            'crew_members' =>
+            $shoot->crewMembers,
+        ]);
     }
 
     /*
@@ -78,11 +133,21 @@ class ShootController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function update(Request $request, Shoot $shoot)
-    {
+    public function update(
+        Request $request,
+        Shoot $shoot
+    ) {
         $request->validate([
 
             'title' => 'required|string|max:255',
+
+            'start_datetime' => 'nullable|date',
+
+            'end_datetime' =>
+            'nullable|date|after:start_datetime',
+
+            'status' =>
+            'nullable|in:planned,scheduled,active,completed,cancelled',
         ]);
 
         $shoot->update([
@@ -93,7 +158,9 @@ class ShootController extends Controller
 
             'location' => $request->location,
 
-            'shoot_date' => $request->shoot_date,
+            'start_datetime' => $request->start_datetime,
+
+            'end_datetime' => $request->end_datetime,
 
             'status' => $request->status,
 
@@ -101,47 +168,147 @@ class ShootController extends Controller
         ]);
 
         return response()->json([
+
             'message' => 'Shoot updated successfully',
-            'shoot' => $shoot
+
+            'shoot' => $shoot,
         ]);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ASSIGN CREW
+    |--------------------------------------------------------------------------
+    */
 
     public function assignCrew(
         Request $request,
         Shoot $shoot
     ) {
+
         $request->validate([
 
             'crew_members' => 'required|array',
         ]);
 
-        /*
-    |--------------------------------------------------------------------------
-    | SYNC CREW MEMBERS
-    |--------------------------------------------------------------------------
-    */
-
         $syncData = [];
 
-        foreach (
-            $request->crew_members
-            as $crewId
-        ) {
+        foreach ($request->crew_members as $crew) {
 
-            $syncData[$crewId] = [
+            /*
+            |--------------------------------------------------------------------------
+            | CONFLICT DETECTION
+            |--------------------------------------------------------------------------
+            */
+
+            $conflict = DB::table('shoot_crew')
+
+                ->join(
+                    'shoots',
+                    'shoots.id',
+                    '=',
+                    'shoot_crew.shoot_id'
+                )
+
+                ->where(
+                    'shoot_crew.crew_member_id',
+                    $crew['id']
+                )
+
+                ->when(
+
+                    $crew['call_time'] &&
+                        $crew['wrap_time'],
+
+                    function ($query) use ($crew) {
+
+                        $query->where(function ($q) use ($crew) {
+
+                            $q->whereBetween(
+                                'shoots.start_datetime',
+                                [
+                                    $crew['call_time'],
+                                    $crew['wrap_time']
+                                ]
+                            )
+
+                                ->orWhereBetween(
+                                    'shoots.end_datetime',
+                                    [
+                                        $crew['call_time'],
+                                        $crew['wrap_time']
+                                    ]
+                                );
+                        });
+                    }
+                )
+
+                ->exists();
+
+            if ($conflict) {
+
+                return response()->json([
+
+                    'message' =>
+                    'Crew member already scheduled during this time.',
+                ], 422);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | ASSIGNMENT DATA
+            |--------------------------------------------------------------------------
+            */
+
+            $syncData[$crew['id']] = [
+
+                'position' =>
+                $crew['position'] ?? null,
+
+                'call_time' =>
+                $crew['call_time'] ?? null,
+
+                'wrap_time' =>
+                $crew['wrap_time'] ?? null,
+
+                'rate' =>
+                $crew['rate'] ?? null,
 
                 'status' => 'assigned',
+
+                'notes' =>
+                $crew['notes'] ?? null,
             ];
         }
 
-        $shoot->crewMembers()->syncWithoutDetaching(
-            $syncData
-        );
+        /*
+        |--------------------------------------------------------------------------
+        | SYNC CREW MEMBERS
+        |--------------------------------------------------------------------------
+        */
+
+        $shoot->crewMembers()
+            ->syncWithoutDetaching($syncData);
 
         return response()->json([
 
             'message' =>
             'Crew assigned successfully',
+        ]);
+    }
+
+    public function removeCrew(
+        Shoot $shoot,
+        CrewMember $crew
+    ) {
+
+        $shoot->crewMembers()
+            ->detach($crew->id);
+
+        return response()->json([
+
+            'message' =>
+            'Crew removed successfully',
         ]);
     }
 
@@ -156,7 +323,9 @@ class ShootController extends Controller
         $shoot->delete();
 
         return response()->json([
-            'message' => 'Shoot deleted successfully'
+
+            'message' =>
+            'Shoot deleted successfully',
         ]);
     }
 }
