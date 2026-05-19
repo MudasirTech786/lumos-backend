@@ -236,4 +236,12 @@ Route::middleware('auth:sanctum')->group(function () {
         '/logistics/{logistic}/status',
         [ShootLogisticController::class, 'updateStatus']
     );
+
+    // For Shoot Calendar View
+    Route::get(
+        'shoots-calendar',
+        [ShootController::class, 'calendar']
+    )->middleware([
+        'permission:shoots.view'
+    ]);
 });
