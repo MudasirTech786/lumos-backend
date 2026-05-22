@@ -139,8 +139,15 @@ class ShootController extends Controller
         $shoot->syncStatus();
 
         $shoot->load([
+
             'crewMembers',
-            'logistics'
+
+            'logistics',
+
+            'inventoryUsages.item',
+
+            'inventoryUsages.assignedUser',
+
         ]);
 
         return response()->json([
@@ -149,6 +156,10 @@ class ShootController extends Controller
 
             'crew_members' =>
             $shoot->crewMembers,
+
+            'inventory_usages' =>
+            $shoot->inventoryUsages,
+
         ]);
     }
 

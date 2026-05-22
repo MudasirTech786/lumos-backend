@@ -14,6 +14,15 @@ use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\LeaveController;
 use App\Http\Controllers\Api\ShootController;
 use App\Http\Controllers\Api\ShootLogisticController;
+use App\Http\Controllers\Api\Inventory\InventoryCategoryController;
+use App\Http\Controllers\Api\Inventory\InventoryItemController;
+use App\Http\Controllers\Api\Inventory\InventoryMovementController;
+use App\Http\Controllers\Api\Inventory\InventoryUsageController;
+use App\Http\Controllers\Api\ShootInventoryController;
+use App\Http\Controllers\Api\Inventory\DamageReportController;
+use App\Http\Controllers\Api\Inventory\RepairController;
+use App\Http\Controllers\Api\Inventory\InspectionController;
+use App\Http\Controllers\Api\Inventory\WriteOffController;
 
 Route::get('/user', function (Request $request) {
 
@@ -244,4 +253,260 @@ Route::middleware('auth:sanctum')->group(function () {
     )->middleware([
         'permission:shoots.view'
     ]);
+
+    // =====================================
+    // SHOOT INVENTORY
+    // =====================================
+
+    Route::get(
+
+        'shoots/{shoot}/inventory',
+
+        [ShootInventoryController::class, 'index']
+
+    )->middleware([
+        'permission:shoots.view'
+    ]);
+
+    Route::post(
+
+        'shoots/{shoot}/inventory',
+
+        [ShootInventoryController::class, 'store']
+
+    )->middleware([
+        'permission:shoots.edit'
+    ]);
+
+    Route::post(
+
+        'shoot-inventory/{usage}/checkout',
+
+        [ShootInventoryController::class, 'checkout']
+
+    )->middleware([
+        'permission:shoots.edit'
+    ]);
+
+    Route::post(
+
+        'shoot-inventory/{usage}/return',
+
+        [ShootInventoryController::class, 'processReturn']
+
+    )->middleware([
+        'permission:shoots.edit'
+    ]);
+
+    Route::delete(
+
+        'shoot-inventory/{usage}',
+
+        [ShootInventoryController::class, 'destroy']
+
+    )->middleware([
+        'permission:shoots.edit'
+    ]);
+
+
+
+    // =======================================
+    // INVENTORY ROUTES
+    // =======================================
+
+    Route::prefix('inventory')->group(function () {
+
+        // =======================================
+        // CATEGORIES
+        // =======================================
+
+        Route::apiResource(
+            'categories',
+            InventoryCategoryController::class
+        )->middleware([
+            'permission:inventory.view'
+        ]);
+
+        // =======================================
+        // ITEMS
+        // =======================================
+
+        Route::apiResource(
+            'items',
+            InventoryItemController::class
+        )->middleware([
+            'permission:inventory.view'
+        ]);
+
+        // =======================================
+        // STOCK UPDATE
+        // =======================================
+
+        Route::post(
+            'items/{item}/stock',
+            [InventoryItemController::class, 'updateStock']
+        )->middleware([
+            'permission:inventory.edit'
+        ]);
+
+        // =======================================
+        // MOVEMENTS
+        // =======================================
+
+        Route::get(
+            'movements',
+            [InventoryMovementController::class, 'index']
+        )->middleware([
+            'permission:inventory.view'
+        ]);
+
+        // =======================================
+        // DAMAGES
+        // =======================================
+
+        Route::post(
+            'items/{item}/damage',
+            [InventoryItemController::class, 'markDamaged']
+        )->middleware([
+            'permission:inventory.edit'
+        ]);
+
+        // =====================================
+        // DAMAGE REPORTS
+        // =====================================
+
+        Route::get(
+
+            'damage-reports',
+
+            [DamageReportController::class, 'index']
+
+        );
+
+        Route::post(
+
+            'damage-reports',
+
+            [DamageReportController::class, 'store']
+
+        );
+
+        Route::patch(
+
+            'damage-reports/{damageReport}/status',
+
+            [DamageReportController::class, 'updateStatus']
+
+        );
+
+        // =====================================
+        // REPAIRS
+        // =====================================
+
+        Route::get(
+
+            'repairs',
+
+            [RepairController::class, 'index']
+
+        );
+
+        Route::post(
+
+            'repairs',
+
+            [RepairController::class, 'store']
+
+        );
+
+        Route::patch(
+
+            'repairs/{repair}/status',
+
+            [RepairController::class, 'updateStatus']
+
+        );
+        // =====================================
+        // INSPECTIONS
+        // =====================================
+
+        Route::get(
+
+            'inspections',
+
+            [InspectionController::class, 'index']
+
+        );
+
+        Route::post(
+
+            'inspections',
+
+            [InspectionController::class, 'store']
+
+        );
+
+        // =====================================
+        // WRITE OFFS
+        // =====================================
+
+        Route::get(
+
+            'write-offs',
+
+            [WriteOffController::class, 'index']
+
+        );
+
+        Route::post(
+
+            'write-offs',
+
+            [WriteOffController::class, 'store']
+
+        );
+    });
+
+    // =======================================
+    // INVENTORY Usage
+    // =======================================
+    Route::prefix('inventory/usage')
+        ->middleware('auth:sanctum')
+        ->group(function () {
+
+            Route::get('/', [
+                InventoryUsageController::class,
+                'index'
+            ]);
+
+            Route::post('/', [
+                InventoryUsageController::class,
+                'store'
+            ]);
+
+            Route::get('/{usage}', [
+                InventoryUsageController::class,
+                'show'
+            ]);
+
+            Route::put('/{usage}', [
+                InventoryUsageController::class,
+                'update'
+            ]);
+
+            Route::post('/{usage}/checkout', [
+                InventoryUsageController::class,
+                'checkout'
+            ]);
+
+            Route::post('/{usage}/return', [
+                InventoryUsageController::class,
+                'processReturn'
+            ]);
+
+            Route::delete('/{usage}', [
+                InventoryUsageController::class,
+                'destroy'
+            ]);
+        });
 });

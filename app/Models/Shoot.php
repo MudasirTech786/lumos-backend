@@ -139,4 +139,11 @@ class Shoot extends Model
             return;
         }
     }
+
+    public function inventoryUsages()
+{
+    return $this->hasMany(
+        InventoryUsage::class
+    );
+}
 }

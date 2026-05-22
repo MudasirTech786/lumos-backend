@@ -32,4 +32,20 @@ class User extends Authenticatable
     {
         return $this->hasOne(Employee::class);
     }
+
+    public function assignedInventoryUsages()
+    {
+        return $this->hasMany(
+            InventoryUsage::class,
+            'assigned_to'
+        );
+    }
+
+    public function createdInventoryUsages()
+    {
+        return $this->hasMany(
+            InventoryUsage::class,
+            'created_by'
+        );
+    }
 }
