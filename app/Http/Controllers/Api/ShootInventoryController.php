@@ -343,7 +343,7 @@ class ShootInventoryController extends Controller
                 $usage->inventory_item_id,
 
                 'type' =>
-                'returned',
+                'return',
 
                 'source_type' => 'shoot',
                 'source_id' => $usage->shoot_id,
@@ -377,7 +377,7 @@ class ShootInventoryController extends Controller
                 $usage->inventory_item_id,
 
                 'type' =>
-                'lost',
+                'loss',
 
                 'source_type' => 'shoot',
                 'source_id' => $usage->shoot_id,
@@ -407,7 +407,7 @@ class ShootInventoryController extends Controller
                 $usage->inventory_item_id,
 
                 'type' =>
-                'damaged',
+                'damage',
 
                 'quantity' =>
                 $validated['damaged_quantity'],

@@ -51,6 +51,7 @@ class InventoryUsage extends Model
 
         'notes',
     ];
+    
 
     protected $casts = [
 

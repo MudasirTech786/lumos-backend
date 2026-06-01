@@ -26,6 +26,10 @@ class InventoryItem extends Model
         'notes',
     ];
 
+    protected $appends = [
+        'calculated_available',
+    ];
+    
     public function category()
     {
         return $this->belongsTo(
@@ -67,5 +71,27 @@ class InventoryItem extends Model
         return $this->hasMany(
             WriteOff::class
         );
+    }
+
+    public function getCalculatedAvailableAttribute()
+    {
+        $reserved = $this->usages()
+            ->whereIn('status', [
+                'reserved',
+                'checked_out',
+                'in_use',
+                'partially_returned',
+            ])
+            ->get()
+            ->sum(function ($usage) {
+                return
+                    $usage->quantity
+                    -
+                    ($usage->returned_quantity ?? 0)
+                    -
+                    ($usage->lost_quantity ?? 0);
+            });
+
+        return max($this->quantity - $reserved, 0);
     }
 }
