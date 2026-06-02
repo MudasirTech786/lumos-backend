@@ -23,6 +23,9 @@ use App\Http\Controllers\Api\Inventory\DamageReportController;
 use App\Http\Controllers\Api\Inventory\RepairController;
 use App\Http\Controllers\Api\Inventory\InspectionController;
 use App\Http\Controllers\Api\Inventory\WriteOffController;
+use App\Http\Controllers\Api\ShootExpenseController;
+use App\Http\Controllers\Api\ShootFinanceController;
+use App\Http\Controllers\Api\PayrollController;
 
 Route::get('/user', function (Request $request) {
 
@@ -509,4 +512,84 @@ Route::middleware('auth:sanctum')->group(function () {
                 'destroy'
             ]);
         });
+
+
+    Route::apiResource(
+        'shoot-expenses',
+        ShootExpenseController::class
+    )->middleware([
+        'permission:finance.view'
+    ]);
+
+    Route::get('/shoots/{shoot}/expenses', [ShootExpenseController::class, 'byShoot']);
+
+    Route::get(
+        '/shoots/{shoot}/finance',
+        [ShootFinanceController::class, 'show']
+    );
+
+    Route::prefix(
+        'payrolls'
+    )->group(function () {
+
+        Route::get(
+            '/',
+            [PayrollController::class, 'index']
+        );
+
+        Route::get(
+            '/{payroll}',
+            [PayrollController::class, 'show']
+        );
+
+        Route::post(
+            '/generate-crew',
+            [
+                PayrollController::class,
+                'generateCrewPayroll'
+            ]
+        );
+
+        Route::post(
+
+            '/generate-employee',
+
+            [
+                PayrollController::class,
+                'generateEmployeePayroll'
+            ]
+
+        );
+
+        Route::post(
+
+            '/{payroll}/approve',
+
+            [
+                PayrollController::class,
+                'approve'
+            ]
+
+        );
+
+        Route::post(
+
+            '/{payroll}/mark-paid',
+
+            [
+                PayrollController::class,
+                'markPaid'
+            ]
+
+        );
+        Route::get(
+            '/{payroll}/items',
+            [PayrollController::class, 'items']
+        );
+
+        Route::get(
+            '/finance/reports',
+            [PayrollController::class, 'reports']
+        );
+    });
 });

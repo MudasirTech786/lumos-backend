@@ -141,9 +141,16 @@ class Shoot extends Model
     }
 
     public function inventoryUsages()
-{
-    return $this->hasMany(
-        InventoryUsage::class
-    );
-}
+    {
+        return $this->hasMany(
+            InventoryUsage::class
+        );
+    }
+
+    public function expenses()
+    {
+        return $this->hasMany(
+            ShootExpense::class
+        );
+    }
 }

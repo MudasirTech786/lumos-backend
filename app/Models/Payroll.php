@@ -7,13 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 class Payroll extends Model
 {
     protected $fillable = [
-        'employee_id',
-        'basic_salary',
-        'total_bonus',
-        'total_deductions',
-        'net_salary',
-        'month',
-        'year'
+
+        'reference',
+
+        'type',
+
+        'period_start',
+
+        'period_end',
+
+        'status',
+
+        'generated_by',
+
+        'gross_amount',
+
+        'deduction_amount',
+
+        'bonus_amount',
+
+        'net_amount'
+
     ];
 
     public function employee()
@@ -21,13 +35,15 @@ class Payroll extends Model
         return $this->belongsTo(Employee::class);
     }
 
-    public function items()
-    {
-        return $this->hasMany(PayrollItem::class);
-    }
-
     public function payslip()
     {
         return $this->hasOne(Payslip::class);
+    }
+
+    public function items()
+    {
+        return $this->hasMany(
+            PayrollItem::class
+        );
     }
 }

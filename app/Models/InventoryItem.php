@@ -24,6 +24,7 @@ class InventoryItem extends Model
         'is_returnable',
         'status',
         'notes',
+        'daily_rental_value'
     ];
 
     protected $appends = [
