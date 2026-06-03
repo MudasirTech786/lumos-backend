@@ -213,6 +213,12 @@ Route::middleware('auth:sanctum')->group(function () {
         'permission:shoots.edit'
     ]);
 
+    // For Shoot fianance details
+    Route::get(
+    '/shoots/{shoot}/finance-details',
+    [ShootFinanceController::class, 'details']
+);
+
     // For Assign Crew to Shoot
     Route::post(
         'shoots/{shoot}/assign-crew',

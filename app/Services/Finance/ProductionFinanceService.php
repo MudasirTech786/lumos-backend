@@ -3,16 +3,45 @@
 namespace App\Services\Finance;
 
 use App\Models\Shoot;
+use Carbon\Carbon;
 
 class ProductionFinanceService
 {
     public function calculate(
         Shoot $shoot
-    )
-    {
+    ) {
+        $days = 1;
+
+        if (
+            $shoot->start_datetime &&
+            $shoot->end_datetime
+        ) {
+
+            $days =
+                Carbon::parse(
+                    $shoot->start_datetime
+                )
+                ->startOfDay()
+                ->diffInDays(
+                    Carbon::parse(
+                        $shoot->end_datetime
+                    )->startOfDay()
+                ) + 1;
+        }
+
         $crewCost =
             $shoot->crewMembers
-            ->sum('rate_per_shift');
+            ->sum(function ($member) use ($days) {
+
+                $dailyRate =
+                    $member->pivot->rate
+                    ??
+                    $member->rate_per_shift
+                    ??
+                    0;
+
+                return $dailyRate * $days;
+            });
 
         $logisticsCost =
             $shoot->logistics
@@ -22,14 +51,25 @@ class ProductionFinanceService
             $shoot->expenses
             ->sum('amount');
 
-        $inventoryCost = 0;
+        $inventoryCost =
+            $shoot->inventoryUsages
+            ->sum(function ($usage) use ($days) {
+
+                return ($usage->quantity ?? 0)
+                    *
+                    ($usage->item->daily_rental_value ?? 0)
+                    *
+                    $days;
+            });
 
         $repairCost = 0;
 
         $totalCost =
             $crewCost +
             $logisticsCost +
-            $expenseCost;
+            $inventoryCost +
+            $expenseCost +
+            $repairCost;
 
         return [
 
@@ -39,6 +79,8 @@ class ProductionFinanceService
 
             'inventory_cost' => $inventoryCost,
 
+            'shoot_days' => $days,
+
             'repair_cost' => $repairCost,
 
             'expense_cost' => $expenseCost,
@@ -46,10 +88,10 @@ class ProductionFinanceService
             'total_cost' => $totalCost,
 
             'revenue' =>
-                $shoot->client_invoice_amount,
+            $shoot->client_invoice_amount,
 
             'profit' =>
-                $shoot->client_invoice_amount
+            $shoot->client_invoice_amount
                 - $totalCost
         ];
     }

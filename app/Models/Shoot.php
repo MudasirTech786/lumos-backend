@@ -30,6 +30,10 @@ class Shoot extends Model
 
         'notes',
 
+        'client_budget',
+        
+        'client_invoice_amount',
+
         'created_by',
     ];
 

@@ -69,6 +69,9 @@ class ShootController extends Controller
 
             'status' =>
             'nullable|in:planned,scheduled,active,completed,cancelled',
+
+            'client_budget' => 'nullable|numeric',
+            'client_invoice_amount' => 'nullable|numeric',
         ]);
 
         $shoot = Shoot::create([
@@ -90,6 +93,11 @@ class ShootController extends Controller
             'status' => $request->status ?? 'planned',
 
             'notes' => $request->notes,
+
+            'client_budget' => $request->client_budget,
+
+            'client_invoice_amount' =>
+            $request->client_invoice_amount,
 
             'created_by' => Auth::id(),
         ]);
@@ -184,6 +192,10 @@ class ShootController extends Controller
 
             'status' =>
             'nullable|in:planned,scheduled,active,completed,cancelled',
+
+            'client_budget' => 'nullable|numeric',
+
+            'client_invoice_amount' => 'nullable|numeric',
         ]);
 
         $shoot->update([
@@ -191,6 +203,12 @@ class ShootController extends Controller
             'title' => $request->title,
 
             'client_name' => $request->client_name,
+
+            'client_budget' =>
+            $request->client_budget,
+
+            'client_invoice_amount' =>
+            $request->client_invoice_amount,
 
             'location' => $request->location,
 

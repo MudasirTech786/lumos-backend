@@ -57,6 +57,9 @@ class InventoryItemController extends Controller
 
                 'status' =>
                 'required|in:available,maintenance,damaged,retired',
+                
+                'daily_rental_value' =>
+                'nullable|numeric|min:0',
 
                 'notes' =>
                 'nullable|string',
@@ -106,6 +109,8 @@ class InventoryItemController extends Controller
             'type' => 'required|in:asset,consumable',
 
             'status' => 'required|in:available,maintenance,damaged,retired',
+
+            'daily_rental_value' => 'nullable|numeric|min:0',
 
             'notes' => 'nullable|string',
         ]);
