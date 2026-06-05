@@ -31,7 +31,7 @@ class Shoot extends Model
         'notes',
 
         'client_budget',
-        
+
         'client_invoice_amount',
 
         'created_by',
@@ -155,6 +155,14 @@ class Shoot extends Model
     {
         return $this->hasMany(
             ShootExpense::class
+        );
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(
+            ProductionInvoice::class,
+            'shoot_id'
         );
     }
 }

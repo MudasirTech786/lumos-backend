@@ -4,6 +4,7 @@ namespace App\Services\Finance;
 
 use App\Models\Shoot;
 use Carbon\Carbon;
+use App\Models\ProductionInvoice;
 
 class ProductionFinanceService
 {
@@ -71,6 +72,21 @@ class ProductionFinanceService
             $expenseCost +
             $repairCost;
 
+        $invoiced =
+            $shoot->invoices()
+            ->sum('total_amount');
+
+        $collected =
+            $shoot->invoices()
+            ->sum('paid_amount');
+
+        $outstanding =
+            $shoot->invoices()
+            ->sum('balance_due');
+
+        $invoiceCount =
+            $shoot->invoices()
+            ->count();
         return [
 
             'crew_cost' => $crewCost,
@@ -92,7 +108,25 @@ class ProductionFinanceService
 
             'profit' =>
             $shoot->client_invoice_amount
-                - $totalCost
+                - $totalCost,
+
+            /*
+    |--------------------------------------------------------------------------
+    | Invoice Metrics
+    |--------------------------------------------------------------------------
+    */
+
+            'invoice_count' =>
+            $invoiceCount,
+
+            'invoiced' =>
+            $invoiced,
+
+            'collected' =>
+            $collected,
+
+            'outstanding' =>
+            $outstanding,
         ];
     }
 }

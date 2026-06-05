@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\Inventory\WriteOffController;
 use App\Http\Controllers\Api\ShootExpenseController;
 use App\Http\Controllers\Api\ShootFinanceController;
 use App\Http\Controllers\Api\PayrollController;
+use App\Http\Controllers\Api\ProductionInvoiceController;
 
 Route::get('/user', function (Request $request) {
 
@@ -215,9 +216,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // For Shoot fianance details
     Route::get(
-    '/shoots/{shoot}/finance-details',
-    [ShootFinanceController::class, 'details']
-);
+        '/shoots/{shoot}/finance-details',
+        [ShootFinanceController::class, 'details']
+    );
 
     // For Assign Crew to Shoot
     Route::post(
@@ -534,6 +535,9 @@ Route::middleware('auth:sanctum')->group(function () {
         [ShootFinanceController::class, 'show']
     );
 
+
+
+    // Payroll Routes
     Route::prefix(
         'payrolls'
     )->group(function () {
@@ -596,6 +600,60 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get(
             '/finance/reports',
             [PayrollController::class, 'reports']
+        );
+    });
+
+    // Invoice Routes
+    Route::prefix('production-invoices')->group(function () {
+
+        Route::get(
+            '/',
+            [ProductionInvoiceController::class, 'index']
+        );
+
+        Route::post(
+            '/',
+            [ProductionInvoiceController::class, 'store']
+        );
+
+        Route::get(
+            '/{invoice}',
+            [ProductionInvoiceController::class, 'show']
+        );
+
+        Route::put(
+            '/{invoice}',
+            [ProductionInvoiceController::class, 'update']
+        );
+
+        Route::delete(
+            '/{invoice}',
+            [ProductionInvoiceController::class, 'destroy']
+        );
+
+        Route::get(
+            '/shoot/{shoot}',
+            [ProductionInvoiceController::class, 'byShoot']
+        );
+
+        Route::get(
+            '/{invoice}/items',
+            [ProductionInvoiceController::class, 'items']
+        );
+
+        Route::post(
+            '/{invoice}/payments',
+            [ProductionInvoiceController::class, 'addPayment']
+        );
+
+        Route::get(
+            '/{invoice}/payments',
+            [ProductionInvoiceController::class, 'payments']
+        );
+
+        Route::get(
+            '/shoots/{shoot}/invoice-summary',
+            [ProductionInvoiceController::class, 'invoiceSummary']
         );
     });
 });
