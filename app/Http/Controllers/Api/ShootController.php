@@ -20,7 +20,7 @@ class ShootController extends Controller
 
     public function index()
     {
-        return Shoot::with('crewMembers', 'logistics',)
+        return Shoot::with('crewMembers', 'logistics', 'expenses')
             ->latest()
             ->get();
     }
@@ -152,6 +152,8 @@ class ShootController extends Controller
 
             'logistics',
 
+            'expenses',
+
             'inventoryUsages.item',
 
             'inventoryUsages.assignedUser',
@@ -165,8 +167,14 @@ class ShootController extends Controller
             'crew_members' =>
             $shoot->crewMembers,
 
+            'logistics' =>
+            $shoot->logistics,
+
             'inventory_usages' =>
             $shoot->inventoryUsages,
+
+            'expenses' =>
+            $shoot->expenses,
 
         ]);
     }
