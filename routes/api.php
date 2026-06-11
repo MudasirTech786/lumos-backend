@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\ShootExpenseController;
 use App\Http\Controllers\Api\ShootFinanceController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\ProductionInvoiceController;
+use App\Http\Controllers\Api\InventoryAssetController;
 
 Route::get('/user', function (Request $request) {
 
@@ -475,6 +476,29 @@ Route::middleware('auth:sanctum')->group(function () {
             [WriteOffController::class, 'store']
 
         );
+
+        // =======================================
+        // ASSETS
+        // =======================================
+        Route::get(
+            '/inventory-assets',
+            [InventoryAssetController::class, 'index']
+        );
+
+        Route::get(
+            '/inventory-assets/lookup/{uuid}',
+            [InventoryAssetController::class, 'lookup']
+        );
+
+        Route::post(
+            '/inventory-assets/{asset}/status',
+            [InventoryAssetController::class, 'updateStatus']
+        );
+
+        Route::get('/inventory-assets/{asset}', [
+            InventoryAssetController::class,
+            'show'
+        ]);
     });
 
     // =======================================

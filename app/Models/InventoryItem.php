@@ -24,13 +24,14 @@ class InventoryItem extends Model
         'is_returnable',
         'status',
         'notes',
-        'daily_rental_value'
+        'daily_rental_value',
+        'track_serial',
     ];
 
     protected $appends = [
         'calculated_available',
     ];
-    
+
     public function category()
     {
         return $this->belongsTo(
@@ -94,5 +95,12 @@ class InventoryItem extends Model
             });
 
         return max($this->quantity - $reserved, 0);
+    }
+
+    public function assets()
+    {
+        return $this->hasMany(
+            InventoryAsset::class
+        );
     }
 }

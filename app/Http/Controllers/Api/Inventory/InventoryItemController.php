@@ -12,7 +12,12 @@ class InventoryItemController extends Controller
 {
     public function index()
     {
-        return InventoryItem::with('category')
+        return InventoryItem::with([
+            'category'
+        ])
+            ->withCount([
+                'assets'
+            ])
             ->latest()
             ->get();
     }
@@ -55,9 +60,12 @@ class InventoryItemController extends Controller
                 'type' =>
                 'required|in:asset,consumable',
 
+                'track_serial' =>
+                'nullable|boolean',
+
                 'status' =>
                 'required|in:available,maintenance,damaged,retired',
-                
+
                 'daily_rental_value' =>
                 'nullable|numeric|min:0',
 
@@ -108,6 +116,9 @@ class InventoryItemController extends Controller
 
             'type' => 'required|in:asset,consumable',
 
+            'track_serial' =>
+            'nullable|boolean',
+
             'status' => 'required|in:available,maintenance,damaged,retired',
 
             'daily_rental_value' => 'nullable|numeric|min:0',
@@ -123,6 +134,17 @@ class InventoryItemController extends Controller
     public function destroy(
         InventoryItem $item
     ) {
+        if (
+            $item->assets()
+            ->exists()
+        ) {
+
+            return response()
+                ->json([
+                    'message' =>
+                    'This item contains tracked assets and cannot be deleted.'
+                ], 422);
+        }
 
         $item->delete();
 
