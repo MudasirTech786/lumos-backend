@@ -165,4 +165,9 @@ class Shoot extends Model
             'shoot_id'
         );
     }
+
+    public function assetAllocations()
+    {
+        return $this->hasMany(AssetAllocation::class);
+    }
 }

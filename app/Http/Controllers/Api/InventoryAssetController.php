@@ -81,7 +81,8 @@ class InventoryAssetController extends Controller
     {
         $asset->load([
             'item',
-            'logs.user'
+            'logs.user',
+            'activeAllocation.shoot',
         ]);
 
         return response()->json([
@@ -93,7 +94,20 @@ class InventoryAssetController extends Controller
                 'status' => $asset->status,
                 'qr_uuid' => $asset->qr_uuid,
                 'notes' => $asset->notes,
+                'active_allocation' => $asset->activeAllocation
+                    ? [
+                        'id' => $asset->activeAllocation->id,
+                        'status' => $asset->activeAllocation->status,
+                        'allocated_at' => $asset->activeAllocation->allocated_at,
 
+                        'shoot' => $asset->activeAllocation->shoot
+                            ? [
+                                'id' => $asset->activeAllocation->shoot->id,
+                                'title' => $asset->activeAllocation->shoot->title,
+                            ]
+                            : null,
+                    ]
+                    : null,
                 'item' => [
                     'id' => $asset->item?->id,
                     'name' => $asset->item?->name,

@@ -36,7 +36,11 @@ return new class extends Migration
                 'damage',
                 'repair',
                 'writeoff',
-                'inspection'
+                'inspection',
+                'allocated',
+                'returned',
+                'created',
+                'status_changed'
             ]);
 
             $table->string('location')->nullable();

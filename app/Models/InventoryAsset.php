@@ -30,4 +30,20 @@ class InventoryAsset extends Model
             AssetScanLog::class
         )->latest();
     }
+
+    public function allocations()
+    {
+        return $this->hasMany(AssetAllocation::class);
+    }
+
+    public function activeAllocation()
+    {
+        return $this->hasOne(
+            AssetAllocation::class,
+            'inventory_asset_id'
+        )->where(
+            'status',
+            'allocated'
+        );
+    }
 }

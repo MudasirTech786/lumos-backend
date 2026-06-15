@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\ShootFinanceController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\ProductionInvoiceController;
 use App\Http\Controllers\Api\InventoryAssetController;
+use App\Http\Controllers\Api\AssetAllocationController;
 
 Route::get('/user', function (Request $request) {
 
@@ -680,4 +681,19 @@ Route::middleware('auth:sanctum')->group(function () {
             [ProductionInvoiceController::class, 'invoiceSummary']
         );
     });
+
+    // Asset Allocation Routes
+    Route::prefix('inventory-assets')
+        ->group(function () {
+
+            Route::post(
+                '/{asset}/allocate',
+                [AssetAllocationController::class, 'allocate']
+            );
+
+            Route::post(
+                '/{asset}/return',
+                [AssetAllocationController::class, 'returnAsset']
+            );
+        });
 });
