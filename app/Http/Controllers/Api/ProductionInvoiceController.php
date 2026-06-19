@@ -58,6 +58,7 @@ class ProductionInvoiceController extends Controller
     {
         $request->validate([
             'shoot_id' => 'required|exists:shoots,id',
+            'assigned_to' =>'nullable|exists:users,id',
             'title' => 'nullable|string|max:255',
             'issue_date' => 'required|date',
             'due_date' => 'nullable|date',

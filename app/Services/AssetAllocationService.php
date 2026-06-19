@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AssetAllocation;
 use App\Models\InventoryAsset;
 use Illuminate\Support\Facades\DB;
+use App\Models\InventoryUsage;
 
 class AssetAllocationService
 {
@@ -12,6 +13,7 @@ class AssetAllocationService
         InventoryAsset $asset,
         int $shootId,
         int $userId,
+        ?int $assignedTo = null,
         ?string $notes = null
     ): AssetAllocation {
 
@@ -19,6 +21,7 @@ class AssetAllocationService
             $asset,
             $shootId,
             $userId,
+            $assignedTo,
             $notes
         ) {
 
@@ -32,9 +35,52 @@ class AssetAllocationService
                 'inventory_asset_id' => $asset->id,
                 'shoot_id' => $shootId,
                 'allocated_by' => $userId,
+                'assigned_to' => $assignedTo,
                 'allocated_at' => now(),
                 'status' => 'allocated',
                 'notes' => $notes,
+            ]);
+
+            InventoryUsage::create([
+
+                'inventory_asset_id' =>
+                $asset->id,
+
+                'inventory_item_id' =>
+                $asset->inventory_item_id,
+
+                'usage_type' =>
+                'shoot',
+
+                'assigned_to' =>
+                $assignedTo,
+
+                'shoot_id' =>
+                $shootId,
+
+                'created_by' =>
+                $userId,
+
+                'quantity' =>
+                1,
+
+                'returned_quantity' =>
+                0,
+
+                'damaged_quantity' =>
+                0,
+
+                'lost_quantity' =>
+                0,
+
+                'status' =>
+                'checked_out',
+
+                'checked_out_at' =>
+                now(),
+
+                'notes' =>
+                $notes,
             ]);
 
             $asset->update([
@@ -62,23 +108,78 @@ class AssetAllocationService
         ) {
 
             $allocation = AssetAllocation::query()
-                ->where('inventory_asset_id', $asset->id)
-                ->where('status', 'allocated')
+
+                ->where(
+                    'inventory_asset_id',
+                    $asset->id
+                )
+
+                ->where(
+                    'status',
+                    'allocated'
+                )
+
                 ->firstOrFail();
 
             $allocation->update([
-                'status' => 'returned',
-                'returned_at' => now(),
+
+                'status' =>
+                'returned',
+
+                'returned_at' =>
+                now(),
+
             ]);
 
+            $usage = InventoryUsage::query()
+
+                ->where(
+                    'inventory_asset_id',
+                    $asset->id
+                )
+
+                ->where(
+                    'status',
+                    'checked_out'
+                )
+
+                ->latest()
+
+                ->first();
+
+            if ($usage) {
+
+                $usage->update([
+
+                    'returned_quantity' => $usage->quantity,
+
+                    'status' =>
+                    'returned',
+
+                    'returned_at' =>
+                    now(),
+
+                ]);
+            }
+
             $asset->update([
-                'status' => 'available',
+
+                'status' =>
+                'available',
+
             ]);
 
             $asset->logs()->create([
-                'user_id' => $userId,
-                'action' => 'returned',
-                'notes' => 'Returned from shoot',
+
+                'user_id' =>
+                $userId,
+
+                'action' =>
+                'returned',
+
+                'notes' =>
+                'Returned from shoot',
+
             ]);
 
             return $allocation;

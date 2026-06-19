@@ -12,7 +12,7 @@ class InventoryUsage extends Model
         // =====================================
         // RELATIONS
         // =====================================
-
+        'inventory_asset_id',
         'inventory_item_id',
 
         'usage_type',
@@ -51,7 +51,7 @@ class InventoryUsage extends Model
 
         'notes',
     ];
-    
+
 
     protected $casts = [
 
@@ -119,6 +119,14 @@ class InventoryUsage extends Model
         return $this->hasMany(
             DamageReport::class,
             'inventory_usage_id'
+        );
+    }
+
+    public function asset()
+    {
+        return $this->belongsTo(
+            InventoryAsset::class,
+            'inventory_asset_id'
         );
     }
 }

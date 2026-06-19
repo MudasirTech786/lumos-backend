@@ -10,6 +10,7 @@ class AssetAllocation extends Model
         'inventory_asset_id',
         'shoot_id',
         'allocated_by',
+        'assigned_to',
         'allocated_at',
         'returned_at',
         'status',
@@ -34,5 +35,13 @@ class AssetAllocation extends Model
     public function allocator()
     {
         return $this->belongsTo(User::class, 'allocated_by');
+    }
+
+    public function assignedUser()
+    {
+        return $this->belongsTo(
+            User::class,
+            'assigned_to'
+        );
     }
 }

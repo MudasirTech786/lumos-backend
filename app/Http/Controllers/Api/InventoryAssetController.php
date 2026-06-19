@@ -14,7 +14,11 @@ class InventoryAssetController extends Controller
     public function index()
     {
         return InventoryAssetResource::collection(
-            InventoryAsset::with('item')
+            InventoryAsset::with([
+                'item',
+                'activeAllocation.shoot',
+                'activeAllocation.assignedUser',
+            ])
                 ->latest()
                 ->paginate()
         );
@@ -23,7 +27,13 @@ class InventoryAssetController extends Controller
     public function lookup($uuid)
     {
         return InventoryAsset::with([
-            'item'
+
+            'item.category',
+
+            'activeAllocation.shoot',
+
+            'activeAllocation.assignedUser',
+
         ])
             ->where(
                 'qr_uuid',
@@ -59,10 +69,23 @@ class InventoryAssetController extends Controller
             $asset->id,
 
             'user_id' =>
-            Auth::user()->id,
+            Auth::id(),
 
-            'status' =>
-            $validated['status'],
+            'action' =>
+            match ($validated['status']) {
+
+                'damaged' =>
+                'damage',
+
+                'under_repair' =>
+                'repair',
+
+                'written_off' =>
+                'writeoff',
+
+                default =>
+                'inspection',
+            },
 
             'notes' =>
             $validated['notes'] ?? null,
@@ -83,6 +106,7 @@ class InventoryAssetController extends Controller
             'item',
             'logs.user',
             'activeAllocation.shoot',
+            'activeAllocation.assignedUser',
         ]);
 
         return response()->json([
@@ -96,22 +120,58 @@ class InventoryAssetController extends Controller
                 'notes' => $asset->notes,
                 'active_allocation' => $asset->activeAllocation
                     ? [
-                        'id' => $asset->activeAllocation->id,
-                        'status' => $asset->activeAllocation->status,
-                        'allocated_at' => $asset->activeAllocation->allocated_at,
 
-                        'shoot' => $asset->activeAllocation->shoot
+                        'id' =>
+                        $asset->activeAllocation->id,
+
+                        'status' =>
+                        $asset->activeAllocation->status,
+
+                        'allocated_at' =>
+                        $asset->activeAllocation->allocated_at,
+
+                        'shoot' =>
+                        $asset->activeAllocation->shoot
                             ? [
-                                'id' => $asset->activeAllocation->shoot->id,
-                                'title' => $asset->activeAllocation->shoot->title,
+                                'id' =>
+                                $asset->activeAllocation->shoot->id,
+
+                                'title' =>
+                                $asset->activeAllocation->shoot->title,
                             ]
                             : null,
+
+                        'assigned_user' =>
+                        $asset->activeAllocation->assignedUser
+                            ? [
+
+                                'id' =>
+                                $asset->activeAllocation
+                                    ->assignedUser
+                                    ->id,
+
+                                'name' =>
+                                $asset->activeAllocation
+                                    ->assignedUser
+                                    ->name,
+
+                                'email' =>
+                                $asset->activeAllocation
+                                    ->assignedUser
+                                    ->email,
+
+                            ]
+                            : null,
+
                     ]
                     : null,
                 'item' => [
                     'id' => $asset->item?->id,
                     'name' => $asset->item?->name,
                     'sku' => $asset->item?->sku,
+
+                    'category' =>
+                    $asset->item?->category?->name,
                 ],
 
                 'logs' => $asset->logs->map(function ($log) {

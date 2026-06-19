@@ -9,7 +9,8 @@ use App\Models\InventoryUsage;
 use App\Models\Shoot;
 use App\Models\InventoryMovement;
 use Illuminate\Http\Request;
-
+use App\Models\InventoryAsset;
+use App\Models\AssetAllocation;
 use Illuminate\Support\Facades\Auth;
 
 class ShootInventoryController extends Controller
@@ -27,6 +28,8 @@ class ShootInventoryController extends Controller
             'inventoryUsages.item',
 
             'inventoryUsages.assignedUser',
+
+            'inventoryUsages.asset',
 
         ]);
 
@@ -330,6 +333,122 @@ class ShootInventoryController extends Controller
         $usage->save();
 
         /* ===================================== */
+        /* QR ASSET SYNC */
+        /* ===================================== */
+
+        if ($usage->inventory_asset_id) {
+
+            $asset = InventoryAsset::find(
+                $usage->inventory_asset_id
+            );
+
+            if ($asset) {
+
+                /*
+            |--------------------------------------------------------------------------
+            | Returned
+            |--------------------------------------------------------------------------
+            */
+
+                if (
+                    ($validated['returned_quantity'] ?? 0) > 0
+                ) {
+
+                    $asset->update([
+                        'status' => 'available',
+                    ]);
+
+                    AssetAllocation::query()
+
+                        ->where(
+                            'inventory_asset_id',
+                            $asset->id
+                        )
+
+                        ->where(
+                            'status',
+                            'allocated'
+                        )
+
+                        ->update([
+
+                            'status' =>
+                            'returned',
+
+                            'returned_at' =>
+                            now(),
+                        ]);
+
+                    $asset->logs()->create([
+
+                        'user_id' =>
+                        Auth::id(),
+
+                        'action' =>
+                        'returned',
+
+                        'notes' =>
+                        'Returned from shoot inventory page',
+                    ]);
+                }
+
+                /*
+            |--------------------------------------------------------------------------
+            | Damaged
+            |--------------------------------------------------------------------------
+            */
+
+                if (
+                    ($validated['damaged_quantity'] ?? 0) > 0
+                ) {
+
+                    $asset->update([
+                        'status' => 'damaged',
+                    ]);
+
+                    $asset->logs()->create([
+
+                        'user_id' =>
+                        Auth::id(),
+
+                        'action' =>
+                        'damage',
+
+                        'notes' =>
+                        'Damaged during shoot return',
+                    ]);
+                }
+
+                /*
+            |--------------------------------------------------------------------------
+            | Lost / Written Off
+            |--------------------------------------------------------------------------
+            */
+
+                if (
+                    ($validated['lost_quantity'] ?? 0) > 0
+                ) {
+
+                    $asset->update([
+                        'status' => 'written_off',
+                    ]);
+
+                    $asset->logs()->create([
+
+                        'user_id' =>
+                        Auth::id(),
+
+                        'action' =>
+                        'writeoff',
+
+                        'notes' =>
+                        'Lost during shoot',
+                    ]);
+                }
+            }
+        }
+
+        /* ===================================== */
         /* RETURN MOVEMENT */
         /* ===================================== */
 
@@ -345,8 +464,12 @@ class ShootInventoryController extends Controller
                 'type' =>
                 'return',
 
-                'source_type' => 'shoot',
-                'source_id' => $usage->shoot_id,
+                'source_type' =>
+                'shoot',
+
+                'source_id' =>
+                $usage->shoot_id,
+
                 'quantity' =>
                 $validated['returned_quantity'],
 
@@ -379,8 +502,12 @@ class ShootInventoryController extends Controller
                 'type' =>
                 'loss',
 
-                'source_type' => 'shoot',
-                'source_id' => $usage->shoot_id,
+                'source_type' =>
+                'shoot',
+
+                'source_id' =>
+                $usage->shoot_id,
+
                 'quantity' =>
                 $validated['lost_quantity'],
 
@@ -388,7 +515,6 @@ class ShootInventoryController extends Controller
                 Auth::id(),
 
                 'notes' =>
-
                 'Inventory lost during shoot',
             ]);
         }
@@ -416,17 +542,17 @@ class ShootInventoryController extends Controller
                 Auth::id(),
 
                 'notes' =>
-
                 'Inventory damaged during shoot',
             ]);
         }
+
         return response()->json([
 
             'message' =>
             'Return processed',
 
             'usage' =>
-            $usage,
+            $usage->fresh(),
         ]);
     }
 

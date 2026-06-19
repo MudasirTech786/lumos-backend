@@ -18,13 +18,15 @@ class AssetAllocationController extends Controller
 
         $request->validate([
             'shoot_id' => ['required', 'exists:shoots,id'],
+            'assigned_to' => 'nullable|exists:users,id',
             'notes' => ['nullable', 'string'],
         ]);
-
+        
         $allocation = $service->allocate(
             $asset,
             $request->shoot_id,
             Auth::user()->id,
+            $request->assigned_to,
             $request->notes
         );
 

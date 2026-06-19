@@ -157,6 +157,7 @@ class ShootController extends Controller
             'inventoryUsages.item',
 
             'inventoryUsages.assignedUser',
+            'inventoryUsages.asset',
 
         ]);
 
