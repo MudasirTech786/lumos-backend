@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\ProductionInvoiceController;
 use App\Http\Controllers\Api\InventoryAssetController;
 use App\Http\Controllers\Api\AssetAllocationController;
+use App\Http\Controllers\Api\DashboardController;
 
 Route::get('/user', function (Request $request) {
 
@@ -70,6 +71,20 @@ Route::middleware('auth:sanctum')->group(function () {
         '/me',
         [AuthController::class, 'me']
     );
+
+
+    // =======================================
+    // DASHBOARD
+    // =======================================
+
+    Route::get('/dashboard/kpis', [DashboardController::class, 'kpis']);
+    Route::get('/dashboard/productions', [DashboardController::class, 'productions']);
+    Route::get('/dashboard/alerts', [DashboardController::class, 'alerts']);
+    Route::get('/dashboard/finance-trend',[DashboardController::class, 'financeTrend']);
+    Route::get('/dashboard/assets',[DashboardController::class,'assetUtilization']);
+    Route::get('/dashboard/qr-activity',[DashboardController::class,'qrActivity']);
+    Route::get('/dashboard/invoices',[DashboardController::class,'invoices']);
+    Route::get('/dashboard/crew-operations',[DashboardController::class,'crewOperations']);
 
 
     // =======================================
