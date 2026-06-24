@@ -4,110 +4,97 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Shoot;
 use App\Models\CrewMember;
 use App\Models\InventoryAsset;
 use App\Models\AssetScanLog;
 use App\Models\ProductionInvoice;
-use App\Models\InventoryCategory;
-use App\Services\FinanceService;
-
-
 
 class DashboardController extends Controller
 {
     public function kpis()
     {
-        $activeProductions = Shoot::whereIn('status', [
-            'planning',
-            'active'
-        ])->count();
+        $cacheKey = 'dashboard:kpis';
 
-        $crewOnSet = CrewMember::where('status', 'active')->count();
+        $data = Cache::remember($cacheKey, 30, function () {
+            $shootCounts = Shoot::selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status IN ('planning','active') THEN 1 ELSE 0 END) as active_productions
+            ")->first();
 
-        $assetsDeployed = InventoryAsset::where('status', 'in_use')->count();
+            $crewOnSet = CrewMember::where('status', 'active')->count();
 
-        $totalAssets = InventoryAsset::count();
+            $assetCounts = InventoryAsset::selectRaw("
+                COUNT(*) as total_assets,
+                SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END) as assets_deployed
+            ")->first();
 
-        $qrScansToday = AssetScanLog::whereDate(
-            'created_at',
-            today()
-        )->count();
+            $qrScansToday = AssetScanLog::whereDate('created_at', today())->count();
 
-        // TEMPORARY
-        // Replace later with actual finance module
-        $revenueMTD = Shoot::sum('client_invoice_amount');
+            $revenueMTD = Shoot::sum('client_invoice_amount');
 
-        // TEMPORARY
-        // Replace later with AlertService
-        $openAlerts = 0;
+            return [
+                'active_productions' => (int) $shootCounts->active_productions,
+                'crew_on_set' => $crewOnSet,
+                'assets_deployed' => (int) $assetCounts->assets_deployed,
+                'total_assets' => (int) $assetCounts->total_assets,
+                'qr_scans_today' => $qrScansToday,
+                'revenue_mtd' => $revenueMTD,
+                'open_alerts' => 0,
+            ];
+        });
 
-        return response()->json([
-            'active_productions' => $activeProductions,
-
-            'crew_on_set' => $crewOnSet,
-
-            'assets_deployed' => $assetsDeployed,
-            'total_assets' => $totalAssets,
-
-            'qr_scans_today' => $qrScansToday,
-
-            'revenue_mtd' => $revenueMTD,
-
-            'open_alerts' => $openAlerts,
-        ]);
+        return response()->json($data);
     }
 
     public function productions()
     {
-        $productions = Shoot::with([
-            'crewMembers',
-            'assetAllocations',
-            'expenses'
-        ])
-            ->latest()
-            ->take(10)
-            ->get()
-            ->map(function ($shoot) {
+        $cacheKey = 'dashboard:productions';
 
-                $budget = $shoot->client_budget ?? 0;
+        $productions = Cache::remember($cacheKey, 30, function () {
+            return Shoot::withCount([
+                    'crewMembers',
+                    'assetAllocations',
+                ])
+                ->withSum('expenses', 'amount')
+                ->latest()
+                ->take(10)
+                ->get()
+                ->map(function ($shoot) {
+                    $budget = $shoot->client_budget ?? 0;
+                    $spent = (float) ($shoot->expenses_sum_amount ?? 0);
 
-                $spent = $shoot->expenses->sum('amount');
-
-                return [
-                    'id' => $shoot->id,
-
-                    'title' => $shoot->title,
-
-                    'client' => $shoot->client_name,
-
-                    'location' => $shoot->location,
-
-                    'status' => $shoot->status,
-
-                    'crew' => $shoot->crewMembers->count(),
-
-                    'assets' => $shoot->assetAllocations->count(),
-
-                    'budget' => $budget,
-
-                    'spent' => $spent,
-                ];
-            });
+                    return [
+                        'id' => $shoot->id,
+                        'title' => $shoot->title,
+                        'client' => $shoot->client_name,
+                        'location' => $shoot->location,
+                        'status' => $shoot->status,
+                        'crew' => $shoot->crew_members_count,
+                        'assets' => $shoot->asset_allocations_count,
+                        'budget' => $budget,
+                        'spent' => $spent,
+                    ];
+                });
+        });
 
         return response()->json($productions);
     }
 
     public function alerts()
     {
-        $alerts = [];
+        $cacheKey = 'dashboard:alerts';
 
-        $shoots = Shoot::with('crewMembers')->get();
+        $result = Cache::remember($cacheKey, 15, function () {
+            $alerts = [];
 
-        foreach ($shoots as $shoot) {
+            $noLocation = Shoot::whereNull('location')
+                ->select('id', 'title')
+                ->get();
 
-            if (!$shoot->location) {
-
+            foreach ($noLocation as $shoot) {
                 $alerts[] = [
                     'type' => 'production',
                     'severity' => 'high',
@@ -117,8 +104,11 @@ class DashboardController extends Controller
                 ];
             }
 
-            if ($shoot->crewMembers->count() === 0) {
+            $noCrew = Shoot::doesntHave('crewMembers')
+                ->select('id', 'title')
+                ->get();
 
+            foreach ($noCrew as $shoot) {
                 $alerts[] = [
                     'type' => 'production',
                     'severity' => 'high',
@@ -128,8 +118,11 @@ class DashboardController extends Controller
                 ];
             }
 
-            if (!$shoot->start_datetime) {
+            $noSchedule = Shoot::whereNull('start_datetime')
+                ->select('id', 'title')
+                ->get();
 
+            foreach ($noSchedule as $shoot) {
                 $alerts[] = [
                     'type' => 'production',
                     'severity' => 'medium',
@@ -138,412 +131,305 @@ class DashboardController extends Controller
                     'shoot_id' => $shoot->id,
                 ];
             }
-        }
 
-        return response()->json([
-            'count' => count($alerts),
-            'high_priority' => collect($alerts)
-                ->where('severity', 'high')
-                ->count(),
-            'alerts' => array_slice($alerts, 0, 10),
-        ]);
+            return [
+                'count' => count($alerts),
+                'high_priority' => collect($alerts)->where('severity', 'high')->count(),
+                'alerts' => array_slice($alerts, 0, 10),
+            ];
+        });
+
+        return response()->json($result);
     }
 
     public function financeTrend()
     {
-        $months = collect();
+        $cacheKey = 'dashboard:finance-trend';
 
-        for ($i = 5; $i >= 0; $i--) {
+        $result = Cache::remember($cacheKey, 300, function () {
+            $sixMonthsAgo = now()->subMonths(5)->startOfMonth();
 
-            $date = now()->subMonths($i);
+            $monthKey = fn($y, $m) => $y . '-' . $m;
 
-            $shoots = Shoot::with([
-                'crewMembers',
-                'logistics',
-                'expenses',
-                'inventoryUsages.item'
-            ])
-                ->whereYear('created_at', $date->year)
-                ->whereMonth('created_at', $date->month)
+            $shootIds = Shoot::where('created_at', '>=', $sixMonthsAgo)
+                ->select('id', 'client_invoice_amount', 'created_at')
                 ->get();
 
-            $revenue = $shoots->sum(
-                'client_invoice_amount'
-            );
-
-            $cost = 0;
-
-            foreach ($shoots as $shoot) {
-
-                $cost += FinanceService::calculateShootCost(
-                    $shoot
-                );
+            if ($shootIds->isEmpty()) {
+                return $this->emptyFinanceResponse();
             }
 
+            $allIds = $shootIds->pluck('id');
+
+            $revenueByMonth = $shootIds->groupBy(fn($s) => $monthKey($s->created_at->year, $s->created_at->month))
+                ->map(fn($group) => $group->sum('client_invoice_amount'));
+
+            $crewCostsByShoot = DB::table('shoot_crew')
+                ->join('shoots', 'shoots.id', '=', 'shoot_crew.shoot_id')
+                ->whereIn('shoot_crew.shoot_id', $allIds)
+                ->selectRaw('
+                    shoot_crew.shoot_id,
+                    SUM(shoot_crew.rate * (DATEDIFF(COALESCE(shoots.end_datetime, shoots.start_datetime), shoots.start_datetime) + 1)) as crew_cost
+                ')
+                ->groupBy('shoot_crew.shoot_id')
+                ->pluck('crew_cost', 'shoot_id');
+
+            $logisticsCostsByShoot = DB::table('shoot_logistics')
+                ->whereIn('shoot_id', $allIds)
+                ->selectRaw('shoot_id, SUM(estimated_cost) as log_cost')
+                ->groupBy('shoot_id')
+                ->pluck('log_cost', 'shoot_id');
+
+            $inventoryCostsByShoot = DB::table('inventory_usages')
+                ->join('inventory_items', 'inventory_items.id', '=', 'inventory_usages.inventory_item_id')
+                ->join('shoots', 'shoots.id', '=', 'inventory_usages.shoot_id')
+                ->whereIn('inventory_usages.shoot_id', $allIds)
+                ->selectRaw('
+                    inventory_usages.shoot_id,
+                    SUM(inventory_usages.quantity * inventory_items.daily_rental_value * (DATEDIFF(COALESCE(shoots.end_datetime, shoots.start_datetime), shoots.start_datetime) + 1)) as inv_cost
+                ')
+                ->groupBy('inventory_usages.shoot_id')
+                ->pluck('inv_cost', 'shoot_id');
+
+            $expensesByShoot = DB::table('shoot_expenses')
+                ->whereIn('shoot_id', $allIds)
+                ->selectRaw('shoot_id, SUM(amount) as exp_cost')
+                ->groupBy('shoot_id')
+                ->pluck('exp_cost', 'shoot_id');
+
+            $shootCosts = collect();
+            foreach ($allIds as $id) {
+                $cost = (float) ($crewCostsByShoot->get($id, 0))
+                    + (float) ($logisticsCostsByShoot->get($id, 0))
+                    + (float) ($inventoryCostsByShoot->get($id, 0))
+                    + (float) ($expensesByShoot->get($id, 0));
+                $shootCosts[$id] = $cost;
+            }
+
+            $shootMonthMap = $shootIds->groupBy(fn($s) => $monthKey($s->created_at->year, $s->created_at->month));
+
+            $months = collect();
+            $totalRevenue = 0;
+            $totalCost = 0;
+
+            for ($i = 5; $i >= 0; $i--) {
+                $date = now()->subMonths($i);
+                $key = $monthKey($date->year, $date->month);
+
+                $monthRevenue = (float) ($revenueByMonth->get($key, 0));
+                $monthShootIds = $shootMonthMap->get($key, collect())->pluck('id');
+
+                $monthCost = 0;
+                foreach ($monthShootIds as $id) {
+                    $monthCost += $shootCosts->get($id, 0);
+                }
+
+                $totalRevenue += $monthRevenue;
+                $totalCost += $monthCost;
+
+                $months->push([
+                    'm' => $date->format('M'),
+                    'rev' => round($monthRevenue / 100000, 1),
+                    'exp' => round($monthCost / 100000, 1),
+                    'pro' => round(($monthRevenue - $monthCost) / 100000, 1),
+                ]);
+            }
+
+            return [
+                'chart' => $months,
+                'summary' => [
+                    'revenue' => $totalRevenue,
+                    'expenses' => $totalCost,
+                    'profit' => $totalRevenue - $totalCost,
+                ],
+            ];
+        });
+
+        return response()->json($result);
+    }
+
+    private function emptyFinanceResponse(): array
+    {
+        $months = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
             $months->push([
-
                 'm' => $date->format('M'),
-
-                // Lakhs
-                'rev' => round(
-                    $revenue / 100000,
-                    1
-                ),
-
-                'exp' => round(
-                    $cost / 100000,
-                    1
-                ),
-
-                'pro' => round(
-                    ($revenue - $cost)
-                        / 100000,
-                    1
-                ),
+                'rev' => 0,
+                'exp' => 0,
+                'pro' => 0,
             ]);
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | SUMMARY TOTALS
-    |--------------------------------------------------------------------------
-    */
-
-        $allShoots = Shoot::with([
-            'crewMembers',
-            'logistics',
-            'expenses',
-            'inventoryUsages.item'
-        ])->get();
-
-        $totalRevenue =
-            $allShoots->sum(
-                'client_invoice_amount'
-            );
-
-        $totalCost = 0;
-
-        foreach ($allShoots as $shoot) {
-
-            $totalCost +=
-                FinanceService::calculateShootCost(
-                    $shoot
-                );
-        }
-
-        return response()->json([
-
+        return [
             'chart' => $months,
-
             'summary' => [
-
-                'revenue' =>
-                $totalRevenue,
-
-                'expenses' =>
-                $totalCost,
-
-                'profit' =>
-                $totalRevenue
-                    -
-                    $totalCost,
+                'revenue' => 0,
+                'expenses' => 0,
+                'profit' => 0,
             ],
-        ]);
+        ];
     }
 
     public function assetUtilization()
     {
-        $totalAssets =
-            InventoryAsset::count();
+        $cacheKey = 'dashboard:assets';
 
-        $available =
-            InventoryAsset::where(
-                'status',
-                'available'
-            )->count();
+        $result = Cache::remember($cacheKey, 60, function () {
+            $stats = InventoryAsset::selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
+                SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END) as in_use,
+                SUM(CASE WHEN status = 'under_repair' THEN 1 ELSE 0 END) as repair,
+                SUM(CASE WHEN status = 'damaged' THEN 1 ELSE 0 END) as damaged
+            ")->first();
 
-        $inUse =
-            InventoryAsset::where(
-                'status',
-                'in_use'
-            )->count();
+            $totalAssets = (int) $stats->total;
+            $inUse = (int) $stats->in_use;
 
-        $repair =
-            InventoryAsset::where(
-                'status',
-                'under_repair'
-            )->count();
+            $overallUtilization = $totalAssets > 0
+                ? round(($inUse / $totalAssets) * 100)
+                : 0;
 
-        $damaged =
-            InventoryAsset::where(
-                'status',
-                'damaged'
-            )->count();
+            $chart = DB::table('inventory_categories')
+                ->join('inventory_items', 'inventory_items.category_id', '=', 'inventory_categories.id')
+                ->join('inventory_assets', 'inventory_assets.inventory_item_id', '=', 'inventory_items.id')
+                ->selectRaw("
+                    inventory_categories.name,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN inventory_assets.status = 'in_use' THEN 1 ELSE 0 END) as used
+                ")
+                ->groupBy('inventory_categories.id', 'inventory_categories.name')
+                ->orderBy('inventory_categories.name')
+                ->get()
+                ->map(function ($cat) {
+                    $usedPct = $cat->total > 0
+                        ? round(($cat->used / $cat->total) * 100)
+                        : 0;
 
-        $overallUtilization =
-            $totalAssets > 0
-            ? round(
-                ($inUse / $totalAssets) * 100
-            )
-            : 0;
+                    return [
+                        'name' => $cat->name,
+                        'used' => $usedPct,
+                        'free' => 100 - $usedPct,
+                    ];
+                });
 
-        $categories =
-            InventoryCategory::with([
-                'items.assets'
-            ])->get();
+            return [
+                'overall_utilization' => $overallUtilization,
+                'available' => (int) $stats->available,
+                'in_use' => $inUse,
+                'repair' => (int) $stats->repair,
+                'damaged' => (int) $stats->damaged,
+                'chart' => $chart,
+            ];
+        });
 
-        $chart = $categories->map(
-            function ($category) {
-
-                $total = 0;
-                $used = 0;
-
-                foreach (
-                    $category->items
-                    as $item
-                ) {
-
-                    $total +=
-                        $item->assets
-                        ->count();
-
-                    $used +=
-                        $item->assets
-                        ->where(
-                            'status',
-                            'in_use'
-                        )
-                        ->count();
-                }
-
-                $usedPct =
-                    $total > 0
-                    ? round(
-                        ($used / $total)
-                            * 100
-                    )
-                    : 0;
-
-                return [
-
-                    'name' =>
-                    $category->name,
-
-                    'used' =>
-                    $usedPct,
-
-                    'free' =>
-                    100 - $usedPct,
-                ];
-            }
-        );
-
-        return response()->json([
-
-            'overall_utilization' =>
-            $overallUtilization,
-
-            'available' =>
-            $available,
-
-            'in_use' =>
-            $inUse,
-
-            'repair' =>
-            $repair,
-
-            'damaged' =>
-            $damaged,
-
-            'chart' =>
-            $chart,
-        ]);
+        return response()->json($result);
     }
 
     public function qrActivity()
     {
-        $todayScans =
-            AssetScanLog::whereDate(
-                'created_at',
-                today()
-            )->count();
+        $cacheKey = 'dashboard:qr-activity';
 
-        $activities =
-            AssetScanLog::with([
-                'asset.item',
-                'user'
-            ])
-            ->latest()
-            ->take(8)
-            ->get()
-            ->map(function ($log) {
+        $result = Cache::remember($cacheKey, 15, function () {
+            $todayScans = AssetScanLog::whereDate('created_at', today())->count();
 
-                return [
+            $activities = AssetScanLog::with([
+                    'asset.item',
+                    'user'
+                ])
+                ->latest()
+                ->take(8)
+                ->get()
+                ->map(function ($log) {
+                    return [
+                        'id' => $log->id,
+                        'time' => $log->created_at->format('H:i'),
+                        'item' => $log->asset?->item?->name ?? 'Unknown Asset',
+                        'code' => $log->asset?->asset_code ?? '---',
+                        'action' => ucfirst($log->action),
+                        'user' => $log->user?->name ?? '—',
+                        'shoot' => $log->notes ?? '—',
+                    ];
+                });
 
-                    'id' => $log->id,
+            return [
+                'today_scans' => $todayScans,
+                'activities' => $activities,
+            ];
+        });
 
-                    'time' =>
-                    $log->created_at
-                        ->format('H:i'),
-
-                    'item' =>
-                    $log->asset?->item?->name
-                        ?? 'Unknown Asset',
-
-                    'code' =>
-                    $log->asset?->asset_code
-                        ?? '---',
-
-                    'action' =>
-                    ucfirst($log->action),
-
-                    'user' =>
-                    $log->user?->name
-                        ?? '—',
-
-                    'shoot' =>
-                    $log->notes
-                        ?? '—',
-                ];
-            });
-
-        return response()->json([
-
-            'today_scans' =>
-            $todayScans,
-
-            'activities' =>
-            $activities,
-        ]);
+        return response()->json($result);
     }
 
     public function invoices()
     {
-        $invoices = ProductionInvoice::with('shoot')
-            ->latest()
-            ->take(10)
-            ->get();
+        $cacheKey = 'dashboard:invoices';
 
-        $totalBilled =
-            ProductionInvoice::sum(
-                'total_amount'
-            );
+        $result = Cache::remember($cacheKey, 30, function () {
+            $summary = ProductionInvoice::selectRaw("
+                SUM(total_amount) as total_billed,
+                SUM(paid_amount) as collected,
+                SUM(CASE WHEN status IN ('draft','sent','partially_paid') THEN balance_due ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'overdue' THEN balance_due ELSE 0 END) as overdue
+            ")->first();
 
-        $collected =
-            ProductionInvoice::sum(
-                'paid_amount'
-            );
-
-        $pending =
-            ProductionInvoice::whereIn(
-                'status',
-                [
-                    'draft',
-                    'sent',
-                    'partially_paid'
-                ]
-            )
-            ->sum(
-                'balance_due'
-            );
-
-        $overdue =
-            ProductionInvoice::where(
-                'status',
-                'overdue'
-            )
-            ->sum(
-                'balance_due'
-            );
-
-        return response()->json([
-
-            'summary' => [
-
-                'total_billed' =>
-                $totalBilled,
-
-                'collected' =>
-                $collected,
-
-                'pending' =>
-                $pending,
-
-                'overdue' =>
-                $overdue,
-            ],
-
-            'invoices' =>
-
-            $invoices->map(
-                function ($invoice) {
-
+            $invoices = ProductionInvoice::with('shoot')
+                ->latest()
+                ->take(10)
+                ->get()
+                ->map(function ($invoice) {
                     return [
-
-                        'id' =>
-                        $invoice->invoice_number,
-
-                        'invoice_id' =>
-                        $invoice->id,
-
-                        'client' =>
-                        $invoice->shoot?->client_name
-                            ?? 'Unknown Client',
-
-                        'amount' =>
-                        $invoice->total_amount,
-
-                        'paid_amount' =>
-                        $invoice->paid_amount,
-
-                        'balance_due' =>
-                        $invoice->balance_due,
-
-                        'status' =>
-                        $invoice->status,
+                        'id' => $invoice->invoice_number,
+                        'invoice_id' => $invoice->id,
+                        'client' => $invoice->shoot?->client_name ?? 'Unknown Client',
+                        'amount' => $invoice->total_amount,
+                        'paid_amount' => $invoice->paid_amount,
+                        'balance_due' => $invoice->balance_due,
+                        'status' => $invoice->status,
                     ];
-                }
-            ),
-        ]);
+                });
+
+            return [
+                'summary' => [
+                    'total_billed' => (float) ($summary->total_billed ?? 0),
+                    'collected' => (float) ($summary->collected ?? 0),
+                    'pending' => (float) ($summary->pending ?? 0),
+                    'overdue' => (float) ($summary->overdue ?? 0),
+                ],
+                'invoices' => $invoices,
+            ];
+        });
+
+        return response()->json($result);
     }
 
     public function crewOperations()
     {
-        $crew = CrewMember::with([
-            'shoots' => function ($query) {
-                $query->latest();
-            }
-        ])
-            ->whereHas('shoots')
-            ->take(10)
-            ->get()
-            ->map(function ($member) {
+        $cacheKey = 'dashboard:crew-operations';
 
-                $latestShoot =
-                    $member->shoots->first();
+        $result = Cache::remember($cacheKey, 30, function () {
+            $crew = CrewMember::whereHas('shoots')
+                ->with(['shoots' => function ($query) {
+                    $query->latest()->limit(1);
+                }])
+                ->take(10)
+                ->get()
+                ->map(function ($member) {
+                    $latestShoot = $member->shoots->first();
 
-                return [
+                    return [
+                        'id' => $member->id,
+                        'name' => $member->name,
+                        'role' => $member->designation ?? 'Crew Member',
+                        'shoot' => $latestShoot?->title ?? 'Unassigned',
+                        'status' => $latestShoot?->pivot?->status ?? 'inactive',
+                    ];
+                });
 
-                    'id' => $member->id,
+            return ['crew' => $crew];
+        });
 
-                    'name' => $member->name,
-
-                    'role' =>
-                    $member->designation
-                        ?? 'Crew Member',
-
-                    'shoot' =>
-                    $latestShoot?->title
-                        ?? 'Unassigned',
-
-                    'status' =>
-                    $latestShoot?->pivot?->status
-                        ?? 'inactive',
-                ];
-            });
-
-        return response()->json([
-            'crew' => $crew
-        ]);
+        return response()->json($result);
     }
 }
