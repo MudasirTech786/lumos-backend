@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\ProductionInvoiceController;
 use App\Http\Controllers\Api\InventoryAssetController;
 use App\Http\Controllers\Api\AssetAllocationController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\SearchController;
 
 Route::get('/user', function (Request $request) {
 
@@ -71,6 +72,13 @@ Route::middleware('auth:sanctum')->group(function () {
         '/me',
         [AuthController::class, 'me']
     );
+
+
+    // =======================================
+    // GLOBAL SEARCH
+    // =======================================
+
+    Route::get('/search', SearchController::class);
 
 
     // =======================================
