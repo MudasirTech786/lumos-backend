@@ -39,6 +39,8 @@ class StoreCrewRequest extends FormRequest
 
             'others' => 'nullable|numeric',
 
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+
             'skills' => 'nullable|array',
 
             'skills.*' => 'string',

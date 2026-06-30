@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class CrewMember extends Model
 {
@@ -10,6 +11,10 @@ class CrewMember extends Model
         'skills' => 'array',
         'joining_date' => 'date',
         'is_active' => 'boolean',
+    ];
+
+    protected $appends = [
+        'profile_photo_url',
     ];
 
     protected $fillable = [
@@ -41,6 +46,20 @@ class CrewMember extends Model
 
         'is_active'
     ];
+
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        if (! $this->profile_photo) {
+            return null;
+        }
+
+        // Already a full URL — return as-is (legacy data)
+        if (str_starts_with($this->profile_photo, 'http')) {
+            return $this->profile_photo;
+        }
+
+        return Storage::url($this->profile_photo);
+    }
 
     public function shoots()
     {
