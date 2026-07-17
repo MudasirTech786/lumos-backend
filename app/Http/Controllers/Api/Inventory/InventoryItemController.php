@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NotificationService;
 
 class InventoryItemController extends Controller
 {
@@ -201,6 +202,24 @@ class InventoryItemController extends Controller
             'created_by' => Auth::user()->id,
             'notes' => $validated['notes'] ?? null,
         ]);
+
+        if (
+            $item->minimum_quantity > 0 &&
+            $item->quantity <= $item->minimum_quantity
+        ) {
+            $notification = app(NotificationService::class);
+            $notification->sendToPermission([
+                'title' => 'Low Stock Alert',
+                'message' => '"' . $item->name . '" is running low on stock (' . $item->quantity . ' remaining, minimum: ' . $item->minimum_quantity . ').',
+                'module' => 'inventory',
+                'type' => 'warning',
+                'priority' => 'high',
+                'action_url' => '/dashboard/inventory/items',
+                'related_model' => 'InventoryItem',
+                'related_id' => $item->id,
+                'created_by' => Auth::user()->id,
+            ], 'inventory.view');
+        }
 
         return response()->json([
             'message' => 'Stock updated',

@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\InventoryAssetController;
 use App\Http\Controllers\Api\AssetAllocationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\NotificationController;
 
 Route::get('/user', function (Request $request) {
 
@@ -719,4 +720,47 @@ Route::middleware('auth:sanctum')->group(function () {
                 [AssetAllocationController::class, 'returnAsset']
             );
         });
+
+
+    // =======================================
+    // NOTIFICATIONS
+    // =======================================
+
+    Route::prefix('notifications')->group(function () {
+
+        Route::get(
+            '/',
+            [NotificationController::class, 'index']
+        );
+
+        Route::get(
+            '/recent',
+            [NotificationController::class, 'recent']
+        );
+
+        Route::get(
+            '/unread-count',
+            [NotificationController::class, 'unreadCount']
+        );
+
+        Route::get(
+            '/modules',
+            [NotificationController::class, 'modules']
+        );
+
+        Route::put(
+            '/read-all',
+            [NotificationController::class, 'markAllAsRead']
+        );
+
+        Route::put(
+            '/{notification}/read',
+            [NotificationController::class, 'markAsRead']
+        );
+
+        Route::delete(
+            '/{notification}',
+            [NotificationController::class, 'destroy']
+        );
+    });
 });

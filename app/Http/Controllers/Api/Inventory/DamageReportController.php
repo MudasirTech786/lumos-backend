@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
 
 use Illuminate\Support\Facades\Auth;
 
+use App\Services\NotificationService;
+
 class DamageReportController extends Controller
 {
     /* ===================================== */
@@ -99,6 +101,19 @@ class DamageReportController extends Controller
             'status' =>
                 'damaged',
         ]);
+
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'Damage Reported',
+            'message' => 'A ' . $validated['severity'] . ' severity damage report has been filed for "' . $item->name . '".',
+            'module' => 'inventory',
+            'type' => 'warning',
+            'priority' => $validated['severity'] === 'critical' ? 'urgent' : ($validated['severity'] === 'high' ? 'high' : 'normal'),
+            'action_url' => '/dashboard/inventory/damages',
+            'related_model' => 'DamageReport',
+            'related_id' => $report->id,
+            'created_by' => Auth::id(),
+        ], 'inventory.view');
 
         return response()->json([
 

@@ -8,6 +8,7 @@ use App\Http\Resources\InventoryAssetResource;
 use App\Models\AssetScanLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Services\NotificationService;
 
 class InventoryAssetController extends Controller
 {
@@ -90,6 +91,38 @@ class InventoryAssetController extends Controller
             'notes' =>
             $validated['notes'] ?? null,
         ]);
+
+        $asset->load('item');
+        $itemName = $asset->item?->name ?? 'Unknown';
+
+        $notification = app(NotificationService::class);
+        $statusMessages = [
+            'available' => 'Asset "' . $itemName . '" (' . $asset->asset_code . ') is now available.',
+            'in_use' => 'Asset "' . $itemName . '" (' . $asset->asset_code . ') is now in use.',
+            'returned' => 'Asset "' . $itemName . '" (' . $asset->asset_code . ') has been returned.',
+            'damaged' => 'Asset "' . $itemName . '" (' . $asset->asset_code . ') has been reported damaged.',
+            'under_repair' => 'Asset "' . $itemName . '" (' . $asset->asset_code . ') is under repair.',
+            'written_off' => 'Asset "' . $itemName . '" (' . $asset->asset_code . ') has been written off.',
+        ];
+        $statusTypes = [
+            'available' => 'success',
+            'in_use' => 'info',
+            'returned' => 'success',
+            'damaged' => 'error',
+            'under_repair' => 'warning',
+            'written_off' => 'error',
+        ];
+        $notification->sendToPermission([
+            'title' => 'Asset Status Updated',
+            'message' => $statusMessages[$validated['status']] ?? 'Asset status updated.',
+            'module' => 'inventory',
+            'type' => $statusTypes[$validated['status']] ?? 'info',
+            'priority' => in_array($validated['status'], ['damaged', 'under_repair']) ? 'high' : 'normal',
+            'action_url' => '/dashboard/inventory/assets',
+            'related_model' => 'InventoryAsset',
+            'related_id' => $asset->id,
+            'created_by' => Auth::id(),
+        ], 'inventory.view');
 
         return response()->json([
             'message' =>

@@ -9,6 +9,7 @@ use App\Services\Payroll\PayrollService;
 use Illuminate\Support\Facades\Auth;
 use App\Services\Finance\FinanceService;
 use App\Models\Shoot;
+use App\Services\NotificationService;
 
 class PayrollController
 extends Controller
@@ -68,6 +69,19 @@ extends Controller
 
         ]);
 
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'Payroll Approved',
+            'message' => 'Payroll "' . $payroll->reference . '" (' . ucfirst($payroll->type) . ') has been approved.',
+            'module' => 'finance',
+            'type' => 'success',
+            'priority' => 'high',
+            'action_url' => '/dashboard/finance/payrolls',
+            'related_model' => 'Payroll',
+            'related_id' => $payroll->id,
+            'created_by' => Auth::user()->id,
+        ], 'finance.view');
+
         return response()->json([
 
             'message' =>
@@ -99,6 +113,19 @@ extends Controller
                 now()
 
             ]);
+
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'Payroll Paid',
+            'message' => 'Payroll "' . $payroll->reference . '" ($' . number_format($payroll->net_amount, 2) . ') has been marked as paid.',
+            'module' => 'finance',
+            'type' => 'success',
+            'priority' => 'high',
+            'action_url' => '/dashboard/finance/payrolls',
+            'related_model' => 'Payroll',
+            'related_id' => $payroll->id,
+            'created_by' => Auth::user()->id,
+        ], 'finance.view');
 
         return response()->json([
 

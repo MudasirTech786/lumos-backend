@@ -13,6 +13,8 @@ use App\Models\User;
 
 use Carbon\Carbon;
 
+use App\Services\NotificationService;
+
 class LeaveController extends Controller
 {
     // =========================
@@ -162,6 +164,19 @@ class LeaveController extends Controller
 
         $leave = Leave::create($validated);
 
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'Leave Submitted',
+            'message' => 'A ' . $leave->leave_type . ' leave request has been submitted for ' . $leave->total_days . ' day(s).',
+            'module' => 'leaves',
+            'type' => 'info',
+            'priority' => 'normal',
+            'action_url' => '/dashboard/leaves',
+            'related_model' => 'Leave',
+            'related_id' => $leave->id,
+            'created_by' => Auth::id(),
+        ], 'leaves.approve');
+
         return response()->json([
 
             'message' => 'Leave created',
@@ -192,6 +207,7 @@ class LeaveController extends Controller
         'status' => 'nullable|in:pending,approved,rejected',
     ]);
 
+    $oldStatus = $leave->status;
     $leave->fill($validated);
 
     // RECALCULATE DAYS
@@ -213,6 +229,43 @@ class LeaveController extends Controller
     }
 
     $leave->save();
+
+    if (
+        isset($validated['status']) &&
+        $validated['status'] !== $oldStatus
+    ) {
+        $employee = Employee::find($leave->employee_id);
+        $employeeUserId = $employee?->user_id;
+
+        $notification = app(NotificationService::class);
+
+        $notifiableUsers = [];
+        if ($employeeUserId) {
+            $notifiableUsers[] = $employeeUserId;
+        }
+        $adminUserIds = \App\Models\User::whereHas('roles', fn($q) => $q->where('name', 'admin'))->pluck('id')->toArray();
+        $notifiableUsers = array_merge($notifiableUsers, $adminUserIds);
+        $notifiableUsers = array_unique(array_filter($notifiableUsers));
+
+        if (!empty($notifiableUsers)) {
+            $type = match($validated['status']) {
+                'approved' => 'success',
+                'rejected' => 'error',
+                default => 'info',
+            };
+            $notification->send([
+                'title' => 'Leave ' . ucfirst($validated['status']),
+                'message' => 'Your leave request has been ' . $validated['status'] . '.',
+                'module' => 'leaves',
+                'type' => $type,
+                'priority' => 'normal',
+                'action_url' => '/dashboard/leaves',
+                'related_model' => 'Leave',
+                'related_id' => $leave->id,
+                'created_by' => Auth::id(),
+            ], $notifiableUsers);
+        }
+    }
 
     return response()->json([
 

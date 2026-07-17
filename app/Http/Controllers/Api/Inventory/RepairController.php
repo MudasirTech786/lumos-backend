@@ -14,6 +14,8 @@ use Illuminate\Http\Request;
 
 use Illuminate\Support\Facades\Auth;
 
+use App\Services\NotificationService;
+
 class RepairController extends Controller
 {
     /* ===================================== */
@@ -219,6 +221,19 @@ class RepairController extends Controller
                     'status' =>
                         'available',
                 ]);
+
+            $notification = app(NotificationService::class);
+            $notification->sendToPermission([
+                'title' => 'Repair Completed',
+                'message' => 'Repair for "' . $repair->item->name . '" has been completed.',
+                'module' => 'inventory',
+                'type' => 'success',
+                'priority' => 'normal',
+                'action_url' => '/dashboard/inventory/damages',
+                'related_model' => 'Repair',
+                'related_id' => $repair->id,
+                'created_by' => Auth::id(),
+            ], 'inventory.view');
         }
 
         return response()->json([

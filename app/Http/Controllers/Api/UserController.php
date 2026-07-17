@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Hash;
 
 use Spatie\Permission\Models\Role;
 
+use App\Services\NotificationService;
+
 class UserController extends Controller
 {
     // 📌 GET USERS
@@ -80,6 +82,19 @@ class UserController extends Controller
             $request->role
         );
 
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'User Created',
+            'message' => '"' . $user->name . '" has been created with the ' . $request->role . ' role.',
+            'module' => 'users',
+            'type' => 'info',
+            'priority' => 'normal',
+            'action_url' => '/dashboard/users',
+            'related_model' => 'User',
+            'related_id' => $user->id,
+            'created_by' => \Illuminate\Support\Facades\Auth::id(),
+        ], 'users.view');
+
         return response()->json([
 
             'message' => 'User created',
@@ -135,6 +150,19 @@ class UserController extends Controller
                 )
             ]);
         }
+
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'User Updated',
+            'message' => '"' . $user->name . '" profile has been updated.',
+            'module' => 'users',
+            'type' => 'info',
+            'priority' => 'low',
+            'action_url' => '/dashboard/users',
+            'related_model' => 'User',
+            'related_id' => $user->id,
+            'created_by' => \Illuminate\Support\Facades\Auth::id(),
+        ], 'users.view');
 
         return response()->json([
             'message' => 'User updated',

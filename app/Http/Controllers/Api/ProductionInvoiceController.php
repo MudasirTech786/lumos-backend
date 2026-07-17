@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\ProductionInvoiceResource;
+use App\Services\NotificationService;
 
 class ProductionInvoiceController extends Controller
 {
@@ -130,6 +131,19 @@ class ProductionInvoiceController extends Controller
 
             DB::commit();
 
+            $notification = app(NotificationService::class);
+            $notification->sendToPermission([
+                'title' => 'Invoice Created',
+                'message' => 'Invoice "' . $invoice->invoice_number . '" created for $' . number_format($total, 2) . '.',
+                'module' => 'finance',
+                'type' => 'info',
+                'priority' => 'normal',
+                'action_url' => '/dashboard/invoices',
+                'related_model' => 'ProductionInvoice',
+                'related_id' => $invoice->id,
+                'created_by' => Auth::user()->id,
+            ], 'finance.view');
+
             return response()->json([
                 'message' => 'Invoice created successfully',
                 'invoice' => $invoice->load('items')
@@ -222,6 +236,23 @@ class ProductionInvoiceController extends Controller
             'balance_due' => $balance,
             'status' => $status,
         ]);
+
+        $notification = app(NotificationService::class);
+        $notifType = $status === 'paid' ? 'success' : 'info';
+        $notifMessage = $status === 'paid'
+            ? 'Invoice "' . $invoice->invoice_number . '" has been fully paid.'
+            : 'Payment of $' . number_format($request->amount, 2) . ' received for invoice "' . $invoice->invoice_number . '".';
+        $notification->sendToPermission([
+            'title' => 'Payment Received',
+            'message' => $notifMessage,
+            'module' => 'finance',
+            'type' => $notifType,
+            'priority' => $status === 'paid' ? 'high' : 'normal',
+            'action_url' => '/dashboard/invoices',
+            'related_model' => 'ProductionInvoice',
+            'related_id' => $invoice->id,
+            'created_by' => Auth::user()->id,
+        ], 'finance.view');
 
         return response()->json([
             'message' => 'Payment added successfully',

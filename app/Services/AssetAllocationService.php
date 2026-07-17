@@ -6,6 +6,7 @@ use App\Models\AssetAllocation;
 use App\Models\InventoryAsset;
 use Illuminate\Support\Facades\DB;
 use App\Models\InventoryUsage;
+use App\Services\NotificationService;
 
 class AssetAllocationService
 {
@@ -92,6 +93,22 @@ class AssetAllocationService
                 'action' => 'allocated',
                 'notes' => "Allocated to shoot #{$shootId}",
             ]);
+
+            $asset->load('item');
+            $itemName = $asset->item?->name ?? 'Unknown';
+
+            $notification = app(NotificationService::class);
+            $notification->sendToPermission([
+                'title' => 'Asset Allocated',
+                'message' => '"' . $itemName . '" (' . $asset->asset_code . ') has been allocated.',
+                'module' => 'inventory',
+                'type' => 'info',
+                'priority' => 'normal',
+                'action_url' => '/dashboard/inventory/assets',
+                'related_model' => 'InventoryAsset',
+                'related_id' => $asset->id,
+                'created_by' => $userId,
+            ], 'inventory.view');
 
             return $allocation;
         });
@@ -181,6 +198,22 @@ class AssetAllocationService
                 'Returned from shoot',
 
             ]);
+
+            $asset->load('item');
+            $itemName = $asset->item?->name ?? 'Unknown';
+
+            $notification = app(NotificationService::class);
+            $notification->sendToPermission([
+                'title' => 'Asset Returned',
+                'message' => '"' . $itemName . '" (' . $asset->asset_code . ') has been returned.',
+                'module' => 'inventory',
+                'type' => 'success',
+                'priority' => 'normal',
+                'action_url' => '/dashboard/inventory/assets',
+                'related_model' => 'InventoryAsset',
+                'related_id' => $asset->id,
+                'created_by' => $userId,
+            ], 'inventory.view');
 
             return $allocation;
         });

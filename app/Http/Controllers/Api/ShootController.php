@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\CrewMember;
+use App\Services\NotificationService;
 
 class ShootController extends Controller
 {
@@ -102,6 +103,19 @@ class ShootController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'Production Created',
+            'message' => '"' . $shoot->title . '" has been created.',
+            'module' => 'productions',
+            'type' => 'info',
+            'priority' => 'normal',
+            'action_url' => '/dashboard/shoots/' . $shoot->id,
+            'related_model' => 'Shoot',
+            'related_id' => $shoot->id,
+            'created_by' => Auth::id(),
+        ], 'shoots.view');
+
         return response()->json([
 
             'message' => 'Shoot created successfully',
@@ -122,10 +136,29 @@ class ShootController extends Controller
             'required|in:planned,scheduled,active,completed,cancelled',
         ]);
 
+        $oldStatus = $shoot->status;
         $shoot->update([
 
             'status' => $request->status,
         ]);
+
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'Production Status Changed',
+            'message' => '"' . $shoot->title . '" status changed from ' . ucfirst($oldStatus) . ' to ' . ucfirst($request->status) . '.',
+            'module' => 'productions',
+            'type' => match($request->status) {
+                'active' => 'success',
+                'completed' => 'success',
+                'cancelled' => 'error',
+                default => 'info',
+            },
+            'priority' => $request->status === 'cancelled' ? 'high' : 'normal',
+            'action_url' => '/dashboard/shoots/' . $shoot->id,
+            'related_model' => 'Shoot',
+            'related_id' => $shoot->id,
+            'created_by' => Auth::id(),
+        ], 'shoots.view');
 
         return response()->json([
 
@@ -352,6 +385,20 @@ class ShootController extends Controller
 
         $shoot->crewMembers()
             ->syncWithoutDetaching($syncData);
+
+        $crewNames = collect($request->crew_members)->pluck('id')->implode(', ');
+        $notification = app(NotificationService::class);
+        $notification->sendToPermission([
+            'title' => 'Crew Assigned',
+            'message' => count($request->crew_members) . ' crew member(s) assigned to "' . $shoot->title . '".',
+            'module' => 'productions',
+            'type' => 'info',
+            'priority' => 'normal',
+            'action_url' => '/dashboard/shoots/' . $shoot->id,
+            'related_model' => 'Shoot',
+            'related_id' => $shoot->id,
+            'created_by' => Auth::id(),
+        ], 'shoots.view');
 
         return response()->json([
 
