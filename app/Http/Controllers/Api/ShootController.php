@@ -46,7 +46,11 @@ class ShootController extends Controller
 
             'status',
 
-            'location'
+            'location',
+
+            'client_name',
+
+            'notes'
 
         )->get();
     }
@@ -66,7 +70,7 @@ class ShootController extends Controller
             'start_datetime' => 'nullable|date',
 
             'end_datetime' =>
-            'nullable|date|after:start_datetime',
+            'nullable|date|after_or_equal:start_datetime',
 
             'status' =>
             'nullable|in:planned,scheduled,active,completed,cancelled',
@@ -230,7 +234,7 @@ class ShootController extends Controller
             'start_datetime' => 'nullable|date',
 
             'end_datetime' =>
-            'nullable|date|after:start_datetime',
+            'nullable|date|after_or_equal:start_datetime',
 
             'status' =>
             'nullable|in:planned,scheduled,active,completed,cancelled',
@@ -240,28 +244,15 @@ class ShootController extends Controller
             'client_invoice_amount' => 'nullable|numeric',
         ]);
 
-        $shoot->update([
-
-            'title' => $request->title,
-
-            'client_name' => $request->client_name,
-
-            'client_budget' =>
-            $request->client_budget,
-
-            'client_invoice_amount' =>
-            $request->client_invoice_amount,
-
-            'location' => $request->location,
-
-            'start_datetime' => $request->start_datetime,
-
-            'end_datetime' => $request->end_datetime,
-
-            'status' => $request->status,
-
-            'notes' => $request->notes,
-        ]);
+        $shoot->update($request->only([
+            'title',
+            'client_name',
+            'location',
+            'start_datetime',
+            'end_datetime',
+            'status',
+            'notes',
+        ]));
 
         return response()->json([
 
